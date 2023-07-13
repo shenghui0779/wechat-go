@@ -44,7 +44,7 @@ func (oa *OfficialAccount) SetHTTPClient(c *http.Client) {
 	oa.client = NewHTTPClient(c)
 }
 
-// WithAccessToken 配置AccessToken获取方法
+// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
 func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context) (string, error)) {
 	oa.access = f
 }
@@ -327,7 +327,7 @@ func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (M, error) {
 		return nil, err
 	}
 
-	return ParseXML2Map(b)
+	return ParseXMLToM(b)
 }
 
 // ReplyEventMsg 事件消息回复

@@ -88,7 +88,7 @@ func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) 
 }
 
 func EventReply(receiveID, token, encodingAESKey string, msg M) (M, error) {
-	str, err := FormatMap2XML(msg)
+	str, err := FormatMToXML(msg)
 
 	if err != nil {
 		return nil, err

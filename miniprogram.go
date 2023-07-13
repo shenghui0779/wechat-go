@@ -43,7 +43,7 @@ func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
 	mp.client = NewHTTPClient(c)
 }
 
-// WithAccessToken 配置AccessToken获取方法
+// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
 func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context) (string, error)) {
 	mp.access = f
 }
@@ -288,7 +288,7 @@ func (mp *MiniProgram) DecryptEventMsg(encrypt string) (M, error) {
 		return nil, err
 	}
 
-	return ParseXML2Map(b)
+	return ParseXMLToM(b)
 }
 
 // ReplyEventMsg 事件消息回复

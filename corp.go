@@ -43,7 +43,7 @@ func (c *Corp) SetHTTPClient(cli *http.Client) {
 	c.client = NewHTTPClient(cli)
 }
 
-// WithAccessToken 配置AccessToken获取方法
+// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
 func (c *Corp) WithAccessToken(f func(ctx context.Context) (string, error)) {
 	c.access = f
 }
@@ -270,7 +270,7 @@ func (c *Corp) DecryptEventMsg(encrypt string) (M, error) {
 		return nil, err
 	}
 
-	return ParseXML2Map(b)
+	return ParseXMLToM(b)
 }
 
 // ReplyEventMsg 事件消息回复

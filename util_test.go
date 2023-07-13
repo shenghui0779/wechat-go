@@ -6,26 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestM(t *testing.T) {
-	m := M{
-		"appid":     "wx2421b1c4370ec43b",
-		"partnerid": "10000100",
-		"prepayid":  "WX1217752501201407033233368018",
-		"package":   "Sign=WXPay",
-		"noncestr":  "5K8264ILTKCH16CQ2502SI8ZNMTM67VS",
-		"timestamp": "1514363815",
-	}
-
-	x, err := FormatMap2XML(m)
-
-	assert.Nil(t, err)
-
-	r, err := ParseXML2Map([]byte(x))
-
-	assert.Nil(t, err)
-	assert.Equal(t, m, r)
-}
-
 func TestMD5(t *testing.T) {
 	assert.Equal(t, "483367436bc9a6c5256bfc29a24f955e", MD5("iiinsomnia"))
 }
@@ -39,7 +19,7 @@ func TestSHA256(t *testing.T) {
 }
 
 func TestHMacSHA256(t *testing.T) {
-	assert.Equal(t, "8a50abfc64f67dac0f6aa8b6560d26517574ce30b5f3487a258ab04b30776db4", HMacSHA256("ILoveGochat", "iiinsomnia"))
+	assert.Equal(t, "8a50abfc64f67dac0f6aa8b6560d26517574ce30b5f3487a258ab04b30776db4", HMacSHA256("iiinsomnia", "ILoveGochat"))
 }
 
 func TestUint32Bytes(t *testing.T) {

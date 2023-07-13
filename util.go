@@ -15,10 +15,17 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/tidwall/gjson"
 	"golang.org/x/crypto/pkcs12"
+)
+
+// SignAlgo 签名算法
+type SignAlgo int
+
+const (
+	SignMD5        SignAlgo = 1
+	SignHMacSHA256 SignAlgo = 2
 )
 
 // AuthScope 网页授权作用域
@@ -34,9 +41,6 @@ var fail = func(err error) (gjson.Result, error) { return gjson.Result{}, err }
 
 // X is a convenient alias for a map[string]interface{}.
 type X map[string]interface{}
-
-// M deal with xml for wechat
-type M map[string]string
 
 // CDATA XML CDATA section which is defined as blocks of text that are not parsed by the parser, but are otherwise recognized as markup.
 type CDATA string
@@ -81,91 +85,11 @@ func SHA256(s string) string {
 }
 
 // HMacSHA256 generates a keyed sha256 hash value.
-func HMacSHA256(s, key string) string {
+func HMacSHA256(key, str string) string {
 	mac := hmac.New(sha256.New, []byte(key))
-
-	mac.Write([]byte(s))
+	mac.Write([]byte(str))
 
 	return hex.EncodeToString(mac.Sum(nil))
-}
-
-// FormatMap2XML format map to xml
-func FormatMap2XML(m M) ([]byte, error) {
-	var builder strings.Builder
-
-	builder.WriteString("<xml>")
-
-	for k, v := range m {
-		builder.WriteString("<" + k + ">")
-
-		if err := xml.EscapeText(&builder, []byte(v)); err != nil {
-			return nil, err
-		}
-
-		builder.WriteString("</" + k + ">")
-	}
-
-	builder.WriteString("</xml>")
-
-	return []byte(builder.String()), nil
-}
-
-// ParseXML2Map parse xml to map
-func ParseXML2Map(b []byte) (M, error) {
-	m := make(M)
-
-	xmlReader := bytes.NewReader(b)
-
-	var (
-		d     = xml.NewDecoder(xmlReader)
-		tk    xml.Token
-		depth = 0 // current xml.Token depth
-		key   string
-		buf   bytes.Buffer
-		err   error
-	)
-
-	d.Strict = false
-
-	for {
-		tk, err = d.Token()
-
-		if err != nil {
-			if err == io.EOF {
-				return m, nil
-			}
-
-			return nil, err
-		}
-
-		switch v := tk.(type) {
-		case xml.StartElement:
-			depth++
-
-			switch depth {
-			case 2:
-				key = v.Name.Local
-				buf.Reset()
-			case 3:
-				if err = d.Skip(); err != nil {
-					return nil, err
-				}
-
-				depth--
-				key = "" // key == "" indicates that the node with depth==2 has children
-			}
-		case xml.CharData:
-			if depth == 2 && key != "" {
-				buf.Write(v)
-			}
-		case xml.EndElement:
-			if depth == 2 && key != "" {
-				m[key] = buf.String()
-			}
-
-			depth--
-		}
-	}
 }
 
 // EncodeUint32ToBytes 把整数 uint32 格式化成 4 字节的网络字节序
