@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/tidwall/gjson"
 )
@@ -49,21 +50,64 @@ func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context) (string, 
 	oa.access = f
 }
 
-// OAuth2URL 生成网页授权URL（请使用 URLEncode 对 redirectURI 进行处理）
-// [参考](https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html)
-func (oa *OfficialAccount) OAuth2URL(scope AuthScope, redirectURI, state string) string {
-	return fmt.Sprintf("https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s#wechat_redirect", oa.appid, redirectURI, scope, state)
+// URL 生成请求URL
+func (oa *OfficialAccount) URL(path string, query url.Values) string {
+	var builder strings.Builder
+
+	builder.WriteString(oa.host)
+
+	if len(path) != 0 && path[0] != '/' {
+		builder.WriteString("/")
+	}
+
+	builder.WriteString(path)
+
+	if len(query) != 0 {
+		builder.WriteString("?")
+		builder.WriteString(query.Encode())
+	}
+
+	return builder.String()
 }
 
-// SubscribeMsgAuthURL 公众号一次性订阅消息授权URL（请使用 URLEncode 对 redirectURL 进行处理）
+// OAuth2URL 生成网页授权URL
+// [参考](https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html)
+func (oa *OfficialAccount) OAuth2URL(scope AuthScope, redirectURI, state string) string {
+	query := url.Values{}
+
+	query.Set("appid", oa.appid)
+	query.Set("redirect_uri", redirectURI)
+	query.Set("response_type", "code")
+	query.Set("scope", string(scope))
+	query.Set("state", state)
+
+	return fmt.Sprintf("https://open.weixin.qq.com/connect/oauth2/authorize?%s#wechat_redirect", query.Encode())
+}
+
+// SubscribeMsgAuthURL 公众号一次性订阅消息授权URL
 // [参考](https://developers.weixin.qq.com/doc/offiaccount/Message_Management/One-time_subscription_info.html)
 func (oa *OfficialAccount) SubscribeMsgAuthURL(scene, templateID, redirectURL, reserved string) string {
-	return fmt.Sprintf("https://mp.weixin.qq.com/mp/subscribemsg?action=get_confirm&appid=%s&template_id=%s&redirect_url=%s&reserved=%s#wechat_redirect", oa.appid, templateID, redirectURL, reserved)
+	query := url.Values{}
+
+	query.Set("appid", oa.appid)
+	query.Set("action", "get_confirm")
+	query.Set("template_id", templateID)
+	query.Set("redirect_url", redirectURL)
+	query.Set("reserved", reserved)
+
+	return fmt.Sprintf("https://mp.weixin.qq.com/mp/subscribemsg?%s#wechat_redirect", query.Encode())
 }
 
 // Code2OAuthToken 获取网页授权Token
-func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string) (gjson.Result, error) {
-	resp, err := oa.client.Do(ctx, http.MethodGet, fmt.Sprintf("%s/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code", oa.host, oa.appid, oa.secret, code), nil)
+func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, options ...HTTPOption) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("appid", oa.appid)
+	query.Set("secret", oa.secret)
+	query.Set("code", code)
+	query.Set("grant_type", "authorization_code")
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/sns/oauth2/access_token", query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -80,15 +124,21 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string) (gj
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
 // RefreshOAuthToken 刷新网页授权Token
-func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken string) (gjson.Result, error) {
-	resp, err := oa.client.Do(ctx, http.MethodGet, fmt.Sprintf("%s/sns/oauth2/refresh_token?appid=%s&grant_type=refresh_token&refresh_token=%s", oa.host, oa.appid, refreshToken), nil)
+func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken string, options ...HTTPOption) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("appid", oa.appid)
+	query.Set("grant_type", "refresh_token")
+	query.Set("refresh_token", refreshToken)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/sns/oauth2/refresh_token", query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -105,14 +155,21 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error) {
-	resp, err := oa.client.Do(ctx, http.MethodGet, fmt.Sprintf("%s/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s", oa.host, oa.appid, oa.secret), nil)
+// AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
+func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("appid", oa.appid)
+	query.Set("secret", oa.secret)
+	query.Set("grant_type", "client_credential")
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/cgi-bin/token", query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -129,13 +186,14 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
+// GetJSON GET请求JSON数据
+func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
 	token, err := oa.access(ctx)
 
 	if err != nil {
@@ -148,7 +206,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 
 	query.Set("access_token", token)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.host+path+"?"+query.Encode(), nil)
+	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL(path, query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -165,13 +223,14 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
+// PostJSON POST请求JSON数据
+func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
 	token, err := oa.access(ctx)
 
 	if err != nil {
@@ -184,7 +243,12 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) 
 		return fail(err)
 	}
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, oa.host+path+"?access_token="+token, body, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+
+	resp, err := oa.client.Do(ctx, http.MethodPost, oa.URL(path, query), body, options...)
 
 	if err != nil {
 		return fail(err)
@@ -201,13 +265,14 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) 
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
+// GetBuffer GET请求获取buffer (用于获取媒体资源等)
+func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
 	token, err := oa.access(ctx)
 
 	if err != nil {
@@ -220,7 +285,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 
 	query.Set("access_token", token)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.host+path+"?"+query.Encode(), nil)
+	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL(path, query), nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -237,13 +302,14 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return nil, fmt.Errorf("%d|%s", code, ret.Get("errmsg").String())
+		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
 
 	return b, nil
 }
 
-func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
+// PostBuffer POST请求获取buffer (用于获取二维码等)
+func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
 	token, err := oa.access(ctx)
 
 	if err != nil {
@@ -256,7 +322,12 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 		return nil, err
 	}
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, oa.host+path+"?access_token="+token, body, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+
+	resp, err := oa.client.Do(ctx, http.MethodPost, oa.URL(path, query), body, options...)
 
 	if err != nil {
 		return nil, err
@@ -273,20 +344,24 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return nil, fmt.Errorf("%d|%s", code, ret.Get("errmsg").String())
+		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
 
 	return b, nil
 }
 
-func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
+// Upload 上传媒体资源
+func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
 	token, err := oa.access(ctx)
 
 	if err != nil {
 		return fail(err)
 	}
 
-	resp, err := oa.client.Upload(ctx, oa.host+path+"?access_token="+token, form)
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	resp, err := oa.client.Upload(ctx, oa.URL(path, query), form, options...)
 
 	if err != nil {
 		return fail(err)
@@ -303,7 +378,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil

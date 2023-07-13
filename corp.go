@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/tidwall/gjson"
 )
 
+// Corp 企业微信
 type Corp struct {
 	host   string
 	corpid string
@@ -48,14 +50,49 @@ func (c *Corp) WithAccessToken(f func(ctx context.Context) (string, error)) {
 	c.access = f
 }
 
-// OAuthURL 生成网页授权URL（请使用 URLEncode 对 redirectURI 进行处理）
+// URL 生成请求URL
+func (c *Corp) URL(path string, query url.Values) string {
+	var builder strings.Builder
+
+	builder.WriteString(c.host)
+
+	if len(path) != 0 && path[0] != '/' {
+		builder.WriteString("/")
+	}
+
+	builder.WriteString(path)
+
+	if len(query) != 0 {
+		builder.WriteString("?")
+		builder.WriteString(query.Encode())
+	}
+
+	return builder.String()
+}
+
+// OAuthURL 生成网页授权URL
 // [参考](https://developer.work.weixin.qq.com/document/path/91022)
-func (c *Corp) OAuthURL(scope AuthScope, redirectURI, state, agentid string) string {
-	return fmt.Sprintf("https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=%s&agentid=%s#wechat_redirect", c.corpid, redirectURI, scope, state, agentid)
+func (c *Corp) OAuthURL(scope AuthScope, redirectURI, state, agentID string) string {
+	query := url.Values{}
+
+	query.Set("appid", c.corpid)
+	query.Set("redirect_uri", redirectURI)
+	query.Set("response_type", "code")
+	query.Set("scope", string(scope))
+	query.Set("state", state)
+	query.Set("agentid", agentID)
+
+	return fmt.Sprintf("https://open.weixin.qq.com/connect/oauth2/authorize?%s#wechat_redirect", query.Encode())
 }
 
-func (c *Corp) AccessToken(ctx context.Context) (gjson.Result, error) {
-	resp, err := c.client.Do(ctx, http.MethodGet, fmt.Sprintf("%s/cgi-bin/gettoken?corpid=%s&corpsecret=%s", c.host, c.corpid, c.secret), nil)
+// AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
+func (c *Corp) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("corpid", c.corpid)
+	query.Set("corpsecret", c.secret)
+
+	resp, err := c.client.Do(ctx, http.MethodGet, c.URL("/cgi-bin/gettoken", query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -72,13 +109,14 @@ func (c *Corp) AccessToken(ctx context.Context) (gjson.Result, error) {
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
+// GetJSON GET请求JSON数据
+func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
 	token, err := c.access(ctx)
 
 	if err != nil {
@@ -91,7 +129,7 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 
 	query.Set("access_token", token)
 
-	resp, err := c.client.Do(ctx, http.MethodGet, c.host+path+"?"+query.Encode(), nil)
+	resp, err := c.client.Do(ctx, http.MethodGet, c.URL(path, query), nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -108,13 +146,14 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (c *Corp) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
+// PostJSON POST请求JSON数据
+func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
 	token, err := c.access(ctx)
 
 	if err != nil {
@@ -127,7 +166,12 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X) (gjson.Resul
 		return fail(err)
 	}
 
-	resp, err := c.client.Do(ctx, http.MethodPost, c.host+path+"?access_token="+token, body, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+
+	resp, err := c.client.Do(ctx, http.MethodPost, c.URL(path, query), body, options...)
 
 	if err != nil {
 		return fail(err)
@@ -144,13 +188,14 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X) (gjson.Resul
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
 }
 
-func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
+// GetBuffer GET请求获取buffer (用于获取媒体资源等)
+func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
 	token, err := c.access(ctx)
 
 	if err != nil {
@@ -163,7 +208,7 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 
 	query.Set("access_token", token)
 
-	resp, err := c.client.Do(ctx, http.MethodGet, c.host+path+"?"+query.Encode(), nil)
+	resp, err := c.client.Do(ctx, http.MethodGet, c.URL(path, query), nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -180,13 +225,14 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return nil, fmt.Errorf("%d|%s", code, ret.Get("errmsg").String())
+		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
 
 	return b, nil
 }
 
-func (c *Corp) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
+// PostBuffer POST请求获取buffer (用于获取二维码等)
+func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
 	token, err := c.access(ctx)
 
 	if err != nil {
@@ -199,7 +245,12 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X) ([]byte, e
 		return nil, err
 	}
 
-	resp, err := c.client.Do(ctx, http.MethodPost, c.host+path+"?access_token="+token, body, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+
+	resp, err := c.client.Do(ctx, http.MethodPost, c.URL(path, query), body, options...)
 
 	if err != nil {
 		return nil, err
@@ -216,20 +267,24 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X) ([]byte, e
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return nil, fmt.Errorf("%d|%s", code, ret.Get("errmsg").String())
+		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
 
 	return b, nil
 }
 
-func (c *Corp) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
+// Upload 上传媒体资源
+func (c *Corp) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
 	token, err := c.access(ctx)
 
 	if err != nil {
 		return fail(err)
 	}
 
-	resp, err := c.client.Upload(ctx, c.host+path+"?access_token="+token, form)
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	resp, err := c.client.Upload(ctx, c.URL(path, query), form, options...)
 
 	if err != nil {
 		return fail(err)
@@ -246,7 +301,7 @@ func (c *Corp) Upload(ctx context.Context, path string, form UploadForm) (gjson.
 	ret := gjson.ParseBytes(b)
 
 	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d|%s", code, ret.Get("errmsg").String()))
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
 
 	return ret, nil
