@@ -12,21 +12,31 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"sort"
 	"strings"
 
+	"github.com/tidwall/gjson"
 	"golang.org/x/crypto/pkcs12"
 )
+
+// AuthScope 网页授权作用域
+type AuthScope string
+
+const (
+	SnsapiBase        AuthScope = "snsapi_base"        // 静默授权，可获取基础信息
+	SnsapiUser        AuthScope = "snsapi_userinfo"    // 手动授权(公众号)，可通过openid拿到昵称、性别、所在地。并且，即使在未关注的情况下，只要用户授权，也能获取其信息
+	SnsapiPrivateInfo AuthScope = "snsapi_privateinfo" // 手动授权(企业微信)，可获取成员的详细信息，包含头像、二维码等敏感信息
+)
+
+var fail = func(err error) (gjson.Result, error) { return gjson.Result{}, err }
 
 // X is a convenient alias for a map[string]interface{}.
 type X map[string]interface{}
 
-// WXML deal with xml for wechat
-type WXML map[string]string
+// M deal with xml for wechat
+type M map[string]string
 
 // CDATA XML CDATA section which is defined as blocks of text that are not parsed by the parser, but are otherwise recognized as markup.
 type CDATA string
@@ -37,42 +47,6 @@ func (c CDATA) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		string `xml:",cdata"`
 	}{string(c)}, start)
 }
-
-// 签名类型
-type SignType string
-
-func (st SignType) Do(key string, m WXML, toUpper bool) string {
-	data := make([]string, 0, len(m))
-
-	for k, v := range m {
-		if k != "sign" && len(v) != 0 {
-			data = append(data, k+"="+v)
-		}
-	}
-
-	sort.Strings(data)
-
-	data = append(data, "key="+key)
-
-	sign := ""
-
-	if st == SignHMacSHA256 {
-		sign = HMacSHA256(strings.Join(data, "&"), key)
-	} else {
-		sign = MD5(strings.Join(data, "&"))
-	}
-
-	if toUpper {
-		sign = strings.ToUpper(sign)
-	}
-
-	return sign
-}
-
-const (
-	SignMD5        SignType = "MD5"
-	SignHMacSHA256 SignType = "HMAC-SHA256"
-)
 
 // Nonce returns nonce string, param `size` better for even number.
 func Nonce(size uint) string {
@@ -116,7 +90,7 @@ func HMacSHA256(s, key string) string {
 }
 
 // FormatMap2XML format map to xml
-func FormatMap2XML(m WXML) ([]byte, error) {
+func FormatMap2XML(m M) ([]byte, error) {
 	var builder strings.Builder
 
 	builder.WriteString("<xml>")
@@ -136,42 +110,9 @@ func FormatMap2XML(m WXML) ([]byte, error) {
 	return []byte(builder.String()), nil
 }
 
-// FormatMap2XMLForTest 用于单元测试
-func FormatMap2XMLForTest(m WXML) ([]byte, error) {
-	ks := make([]string, 0, len(m))
-
-	for k := range m {
-		ks = append(ks, k)
-	}
-
-	sort.Strings(ks)
-
-	var builder strings.Builder
-
-	builder.WriteString("<xml>")
-
-	for _, k := range ks {
-		builder.WriteString("<" + k + ">")
-
-		if err := xml.EscapeText(&builder, []byte(m[k])); err != nil {
-			return nil, err
-		}
-
-		builder.WriteString("</" + k + ">")
-	}
-
-	builder.WriteString("</xml>")
-
-	xmlStr := builder.String()
-
-	fmt.Println("[XML]", xmlStr)
-
-	return []byte(xmlStr), nil
-}
-
 // ParseXML2Map parse xml to map
-func ParseXML2Map(b []byte) (WXML, error) {
-	m := make(WXML)
+func ParseXML2Map(b []byte) (M, error) {
+	m := make(M)
 
 	xmlReader := bytes.NewReader(b)
 
