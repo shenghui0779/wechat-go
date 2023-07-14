@@ -194,7 +194,7 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...H
 	return ret, nil
 }
 
-// GetBuffer GET请求获取buffer (用于获取媒体资源等)
+// GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
 	token, err := c.access(ctx)
 
@@ -231,7 +231,7 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, opt
 	return b, nil
 }
 
-// PostBuffer POST请求获取buffer (用于获取二维码等)
+// PostBuffer POST请求获取buffer (如：获取二维码)
 func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
 	token, err := c.access(ctx)
 

@@ -20,23 +20,6 @@ import (
 	"golang.org/x/crypto/pkcs12"
 )
 
-// SignAlgo 签名算法
-type SignAlgo int
-
-const (
-	SignMD5        SignAlgo = 1
-	SignHMacSHA256 SignAlgo = 2
-)
-
-// AuthScope 网页授权作用域
-type AuthScope string
-
-const (
-	SnsapiBase        AuthScope = "snsapi_base"        // 静默授权，可获取基础信息
-	SnsapiUser        AuthScope = "snsapi_userinfo"    // 手动授权(公众号)，可通过openid拿到昵称、性别、所在地。并且，即使在未关注的情况下，只要用户授权，也能获取其信息
-	SnsapiPrivateInfo AuthScope = "snsapi_privateinfo" // 手动授权(企业微信)，可获取成员的详细信息，包含头像、二维码等敏感信息
-)
-
 var fail = func(err error) (gjson.Result, error) { return gjson.Result{}, err }
 
 // X is a convenient alias for a map[string]interface{}.
