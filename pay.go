@@ -67,12 +67,12 @@ func (p *Pay) URL(path string, query url.Values) string {
 }
 
 // PostXML POST请求XML数据 (无证书请求)
-func (p *Pay) PostXML(ctx context.Context, appid, path string, params M, options ...HTTPOption) (M, error) {
+func (p *Pay) PostXML(ctx context.Context, appid, path string, params V, options ...HTTPOption) (V, error) {
 	params.Set("appid", appid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
-	body, err := FormatMToXML(params)
+	body, err := FormatVToXML(params)
 
 	if err != nil {
 		return nil, err
@@ -86,13 +86,17 @@ func (p *Pay) PostXML(ctx context.Context, appid, path string, params M, options
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := ParseXMLToM(b)
+	ret, err := ParseXMLToV(b)
 
 	if err != nil {
 		return nil, err
@@ -114,12 +118,12 @@ func (p *Pay) PostXML(ctx context.Context, appid, path string, params M, options
 }
 
 // PostTLSXML POST请求XML数据 (带证书请求)
-func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params M, options ...HTTPOption) (M, error) {
+func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params V, options ...HTTPOption) (V, error) {
 	params.Set("appid", appid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
-	body, err := FormatMToXML(params)
+	body, err := FormatVToXML(params)
 
 	if err != nil {
 		return nil, err
@@ -133,13 +137,17 @@ func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params M, opti
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := ParseXMLToM(b)
+	ret, err := ParseXMLToV(b)
 
 	if err != nil {
 		return nil, err
@@ -161,12 +169,12 @@ func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params M, opti
 }
 
 // PostBuffer POST请求获取buffer (无证书请求，如：下载交易订单)
-func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params M, options ...HTTPOption) ([]byte, error) {
+func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params V, options ...HTTPOption) ([]byte, error) {
 	params.Set("appid", appid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
-	body, err := FormatMToXML(params)
+	body, err := FormatVToXML(params)
 
 	if err != nil {
 		return nil, err
@@ -180,13 +188,17 @@ func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params M, opti
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := ParseXMLToM(b)
+	ret, err := ParseXMLToV(b)
 
 	if err != nil {
 		return nil, err
@@ -201,12 +213,12 @@ func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params M, opti
 }
 
 // PostBuffer POST请求获取buffer (带证书请求，如：下载资金账单)
-func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params M, options ...HTTPOption) ([]byte, error) {
+func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params V, options ...HTTPOption) ([]byte, error) {
 	params.Set("appid", appid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
-	body, err := FormatMToXML(params)
+	body, err := FormatVToXML(params)
 
 	if err != nil {
 		return nil, err
@@ -220,13 +232,17 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params M, o
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := ParseXMLToM(b)
+	ret, err := ParseXMLToV(b)
 
 	if err != nil {
 		return nil, err
@@ -240,7 +256,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params M, o
 	return b, nil
 }
 
-func (p *Pay) Sign(m M) string {
+func (p *Pay) Sign(m V) string {
 	str := m.Encode("=", "&",
 		WithIgnoreKeys("sign"),
 		WithEmptyEncodeMode(EmptyEncodeIgnore),
@@ -259,7 +275,7 @@ func (p *Pay) Sign(m M) string {
 	return strings.ToUpper(MD5(str))
 }
 
-func (p *Pay) Verify(m M) error {
+func (p *Pay) Verify(m V) error {
 	str := m.Encode("=", "&",
 		WithIgnoreKeys("sign"),
 		WithEmptyEncodeMode(EmptyEncodeIgnore),
@@ -289,7 +305,7 @@ func (p *Pay) Verify(m M) error {
 }
 
 // DecryptRefund 退款结果通知解密
-func (p *Pay) DecryptRefund(encrypt string) (M, error) {
+func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 	cipherText, err := base64.StdEncoding.DecodeString(encrypt)
 
 	if err != nil {
@@ -304,12 +320,12 @@ func (p *Pay) DecryptRefund(encrypt string) (M, error) {
 		return nil, err
 	}
 
-	return ParseXMLToM(plainText)
+	return ParseXMLToV(plainText)
 }
 
 // APPAPI 用于APP拉起支付
-func (p *Pay) APPAPI(appid, prepayID string) M {
-	m := M{}
+func (p *Pay) APPAPI(appid, prepayID string) V {
+	m := V{}
 
 	m.Set("appid", appid)
 	m.Set("partnerid", p.mchid)
@@ -324,8 +340,8 @@ func (p *Pay) APPAPI(appid, prepayID string) M {
 }
 
 // JSAPI 用于JS拉起支付
-func (p *Pay) JSAPI(appid, prepayID string) M {
-	m := M{}
+func (p *Pay) JSAPI(appid, prepayID string) V {
+	m := V{}
 
 	m.Set("appId", appid)
 	m.Set("nonceStr", Nonce(16))
@@ -339,8 +355,8 @@ func (p *Pay) JSAPI(appid, prepayID string) M {
 }
 
 // MinipRedpackJSAPI 小程序领取红包
-func (p *Pay) MinipRedpackJSAPI(appid, pkg string) M {
-	m := M{}
+func (p *Pay) MinipRedpackJSAPI(appid, pkg string) V {
+	m := V{}
 
 	m.Set("appId", appid)
 	m.Set("nonceStr", Nonce(16))

@@ -87,6 +87,10 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -117,6 +121,10 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -154,6 +162,10 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -197,6 +209,10 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -233,6 +249,10 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -276,6 +296,10 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -310,6 +334,10 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -336,18 +364,18 @@ func (mp *MiniProgram) VerifyEventSign(signature string, items ...string) bool {
 }
 
 // DecryptEventMsg 事件消息解密
-func (mp *MiniProgram) DecryptEventMsg(encrypt string) (M, error) {
+func (mp *MiniProgram) DecryptEventMsg(encrypt string) (V, error) {
 	b, err := EventDecrypt(mp.appid, mp.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseXMLToM(b)
+	return ParseXMLToV(b)
 }
 
 // ReplyEventMsg 事件消息回复
-func (mp *MiniProgram) ReplyEventMsg(msg M) (M, error) {
+func (mp *MiniProgram) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(mp.appid, mp.token, mp.aeskey, msg)
 }
 

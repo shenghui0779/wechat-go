@@ -7,7 +7,7 @@ import (
 )
 
 func TestM(t *testing.T) {
-	v1 := M{}
+	v1 := V{}
 
 	v1.Set("bar", "baz")
 	v1.Set("foo", "quux")
@@ -15,7 +15,7 @@ func TestM(t *testing.T) {
 	assert.Equal(t, "bar=baz&foo=quux", v1.Encode("=", "&"))
 	assert.Equal(t, "bar:baz#foo:quux", v1.Encode(":", "#"))
 
-	v2 := M{}
+	v2 := V{}
 
 	v2.Set("bar", "baz@666")
 	v2.Set("foo", "quux%666")
@@ -23,7 +23,7 @@ func TestM(t *testing.T) {
 	assert.Equal(t, "bar=baz@666&foo=quux%666", v2.Encode("=", "&"))
 	assert.Equal(t, "bar=baz%40666&foo=quux%25666", v2.Encode("=", "&", WithKVEscape()))
 
-	v3 := M{}
+	v3 := V{}
 
 	v3.Set("hello", "world")
 	v3.Set("bar", "baz")
@@ -38,7 +38,7 @@ func TestM(t *testing.T) {
 }
 
 func TestXML(t *testing.T) {
-	m := M{
+	m := V{
 		"appid":     "wx2421b1c4370ec43b",
 		"partnerid": "10000100",
 		"prepayid":  "WX1217752501201407033233368018",
@@ -47,11 +47,11 @@ func TestXML(t *testing.T) {
 		"timestamp": "1514363815",
 	}
 
-	x, err := FormatMToXML(m)
+	x, err := FormatVToXML(m)
 
 	assert.Nil(t, err)
 
-	r, err := ParseXMLToM([]byte(x))
+	r, err := ParseXMLToV([]byte(x))
 
 	assert.Nil(t, err)
 	assert.Equal(t, m, r)

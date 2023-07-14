@@ -9,7 +9,7 @@ import (
 func TestSign(t *testing.T) {
 	pay := NewPay("10000100", "192006250b4c09247ec02edce69f6a2d")
 
-	params := M{}
+	params := V{}
 
 	params.Set("appid", "wx2421b1c4370ec43b")
 	params.Set("mch_id", pay.MchID())

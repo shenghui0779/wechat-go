@@ -79,6 +79,21 @@ func TestECBCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d7b))
 }
 
+func TestGCMCrypto(t *testing.T) {
+	key := []byte("AES256Key-32Characters1234567890")
+	nonce := key[:12]
+	plainText := "IloveYiigo"
+
+	gcm := NewGCMCrypto(key, nonce)
+
+	eb, err := gcm.Encrypt([]byte(plainText), nil)
+	assert.Nil(t, err)
+
+	db, err := gcm.Decrypt(eb, nil)
+	assert.Nil(t, err)
+	assert.Equal(t, plainText, string(db))
+}
+
 func TestRSACrypto(t *testing.T) {
 	publicKey := []byte(`-----BEGIN RSA PUBLIC KEY-----
 MIIBCgKCAQEAwWVvD3G+O9N1NuBBz44OLb6aq85w8ahoTRepzydJ2qBcaDh+Zj6M

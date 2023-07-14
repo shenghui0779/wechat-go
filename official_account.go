@@ -115,6 +115,10 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -146,6 +150,10 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -176,6 +184,10 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -213,6 +225,10 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -256,6 +272,10 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -292,6 +312,10 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -335,6 +359,10 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -369,6 +397,10 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -395,18 +427,18 @@ func (oa *OfficialAccount) VerifyEventSign(signature string, items ...string) bo
 }
 
 // DecryptEventMsg 事件消息解密
-func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (M, error) {
+func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (V, error) {
 	b, err := EventDecrypt(oa.appid, oa.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseXMLToM(b)
+	return ParseXMLToV(b)
 }
 
 // ReplyEventMsg 事件消息回复
-func (oa *OfficialAccount) ReplyEventMsg(msg M) (M, error) {
+func (oa *OfficialAccount) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(oa.appid, oa.token, oa.aeskey, msg)
 }
 

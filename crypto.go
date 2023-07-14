@@ -15,46 +15,34 @@ import (
 	"path/filepath"
 )
 
-// AESPaddingMode aes padding mode
+// AESPaddingMode AES填充模式
 type AESPaddingMode int
 
 const (
-	// AES_ZERO zero padding mode
-	AES_ZERO AESPaddingMode = iota
-	// AES_PKCS5 PKCS#5 padding mode
-	AES_PKCS5
-	// AES_PKCS7 PKCS#7 padding mode
-	AES_PKCS7
+	AES_ZERO  AESPaddingMode = 0 // 0
+	AES_PKCS5 AESPaddingMode = 5 // PKCS#5
+	AES_PKCS7 AESPaddingMode = 7 // PKCS#7
 )
 
-// RSAPaddingMode pem block type which taken from the preamble.
+// RSAPaddingMode RSA PEM 填充模式
 type RSAPaddingMode int
 
 const (
-	// RSA_PKCS1 this kind of key is commonly encoded in PEM blocks of type "RSA PRIVATE KEY" and "RSA PUBLIC KEY"
-	RSA_PKCS1 RSAPaddingMode = iota
-	// RSA_PKCS8 this kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY" and "PUBLIC KEY"
-	RSA_PKCS8
+	RSA_PKCS1 RSAPaddingMode = 1 // PKCS#1 (格式：`RSA PRIVATE KEY` 和 `RSA PUBLIC KEY`)
+	RSA_PKCS8 RSAPaddingMode = 8 // PKCS#8 (格式：`PRIVATE KEY` 和 `PUBLIC KEY`)
 )
 
-// AESCrypto is the interface for aes crypto.
-type AESCrypto interface {
-	// Encrypt encrypts the plain text.
-	Encrypt(plainText []byte) ([]byte, error)
+// ------------------------------------ AES ------------------------------------
 
-	// Decrypt decrypts the cipher text.
-	Decrypt(cipherText []byte) ([]byte, error)
-}
-
-// ------------------------------------ AES-CBC ------------------------------------
-
-type cbccrypto struct {
+// AES-CBC 加密算法
+type CBCCrypto struct {
 	key  []byte
 	iv   []byte
 	mode AESPaddingMode
 }
 
-func (c *cbccrypto) Encrypt(plainText []byte) ([]byte, error) {
+// Encrypt AES-CBC 加密
+func (c *CBCCrypto) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -82,7 +70,8 @@ func (c *cbccrypto) Encrypt(plainText []byte) ([]byte, error) {
 	return cipherText, nil
 }
 
-func (c *cbccrypto) Decrypt(cipherText []byte) ([]byte, error) {
+// Decrypt AES-CBC 解密
+func (c *CBCCrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -110,23 +99,23 @@ func (c *cbccrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-// NewCBCCrypto returns a new aes-cbc crypto.
-func NewCBCCrypto(key, iv []byte, mode AESPaddingMode) AESCrypto {
-	return &cbccrypto{
+// NewCBCCrypto 生成 AES-CBC 加密模式
+func NewCBCCrypto(key, iv []byte, mode AESPaddingMode) *CBCCrypto {
+	return &CBCCrypto{
 		key:  key,
 		iv:   iv,
 		mode: mode,
 	}
 }
 
-// ------------------------------------ AES-ECB ------------------------------------
-
-type ecbcrypto struct {
+// AES-ECB 加密算法
+type ECBCrypto struct {
 	key  []byte
 	mode AESPaddingMode
 }
 
-func (c *ecbcrypto) Encrypt(plainText []byte) ([]byte, error) {
+// Encrypt AES-ECB 加密
+func (c *ECBCrypto) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -150,7 +139,8 @@ func (c *ecbcrypto) Encrypt(plainText []byte) ([]byte, error) {
 	return cipherText, nil
 }
 
-func (c *ecbcrypto) Decrypt(cipherText []byte) ([]byte, error) {
+// Decrypt AES-ECB 解密
+func (c *ECBCrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -174,27 +164,83 @@ func (c *ecbcrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-// NewECBCrypto returns a new aes-ecb crypto.
-func NewECBCrypto(key []byte, mode AESPaddingMode) AESCrypto {
-	return &ecbcrypto{
+// NewECBCrypto 生成 AES-ECB 加密模式
+func NewECBCrypto(key []byte, mode AESPaddingMode) *ECBCrypto {
+	return &ECBCrypto{
 		key:  key,
 		mode: mode,
 	}
 }
 
+// AES-GCM 加密算法
+type GCMCrypto struct {
+	key   []byte
+	nonce []byte
+}
+
+// Encrypt AES-GCM 加密
+func (c *GCMCrypto) Encrypt(plainText, additionalData []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	aead, err := cipher.NewGCM(block)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(c.nonce) != aead.NonceSize() {
+		return nil, errors.New("nonce length must equal gcm standard nonce size")
+	}
+
+	return aead.Seal(nil, c.nonce, plainText, additionalData), nil
+}
+
+// Decrypt AES-GCM 解密
+func (c *GCMCrypto) Decrypt(cipherText, additionalData []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(c.nonce) != aesgcm.NonceSize() {
+		return nil, errors.New("nonce length must equal gcm standard nonce size")
+	}
+
+	return aesgcm.Open(nil, c.nonce, cipherText, additionalData)
+}
+
+// NewGCMCrypto 生成 AES-GCM 加密模式
+func NewGCMCrypto(key, nonce []byte) *GCMCrypto {
+	return &GCMCrypto{
+		key:   key,
+		nonce: nonce,
+	}
+}
+
 // ------------------------------------ RSA ------------------------------------
 
-// PrivateKey RSA private key
+// PrivateKey RSA私钥
 type PrivateKey struct {
 	key *rsa.PrivateKey
 }
 
-// Decrypt rsa decrypt with PKCS #1 v1.5
+// Decrypt RSA私钥 PKCS#1 v1.5 解密
 func (pk *PrivateKey) Decrypt(cipherText []byte) ([]byte, error) {
 	return rsa.DecryptPKCS1v15(rand.Reader, pk.key, cipherText)
 }
 
-// DecryptOAEP rsa decrypt with PKCS #1 OAEP.
+// DecryptOAEP RSA私钥 PKCS#1 OAEP 解密
 func (pk *PrivateKey) DecryptOAEP(hash crypto.Hash, cipherText []byte) ([]byte, error) {
 	if !hash.Available() {
 		return nil, fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
@@ -203,7 +249,7 @@ func (pk *PrivateKey) DecryptOAEP(hash crypto.Hash, cipherText []byte) ([]byte, 
 	return rsa.DecryptOAEP(hash.New(), rand.Reader, pk.key, cipherText, nil)
 }
 
-// Sign returns sha-with-rsa signature.
+// Sign RSA私钥签名
 func (pk *PrivateKey) Sign(hash crypto.Hash, data []byte) ([]byte, error) {
 	if !hash.Available() {
 		return nil, fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
@@ -221,7 +267,7 @@ func (pk *PrivateKey) Sign(hash crypto.Hash, data []byte) ([]byte, error) {
 	return signature, nil
 }
 
-// NewPrivateKeyFromPemBlock returns new private key with pem block.
+// NewPrivateKeyFromPemBlock 通过PEM字节生成RSA私钥
 func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKey, error) {
 	block, _ := pem.Decode(pemBlock)
 
@@ -230,7 +276,7 @@ func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKe
 	}
 
 	var (
-		pk  interface{}
+		pk  any
 		err error
 	)
 
@@ -248,7 +294,7 @@ func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKe
 	return &PrivateKey{key: pk.(*rsa.PrivateKey)}, nil
 }
 
-// NewPrivateKeyFromPemFile returns new private key with pem file.
+// NewPrivateKeyFromPemFile  通过PEM文件生成RSA私钥
 func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
 
@@ -265,7 +311,7 @@ func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey,
 	return NewPrivateKeyFromPemBlock(mode, b)
 }
 
-// NewPrivateKeyFromPfxFile returns private key with pfx(p12) file.
+// NewPrivateKeyFromPfxFile 通过pfx(p12)文件生成RSA私钥
 func NewPrivateKeyFromPfxFile(pfxFile, password string) (*PrivateKey, error) {
 	cert, err := LoadCertFromPfxFile(pfxFile, password)
 
@@ -276,17 +322,17 @@ func NewPrivateKeyFromPfxFile(pfxFile, password string) (*PrivateKey, error) {
 	return &PrivateKey{key: cert.PrivateKey.(*rsa.PrivateKey)}, nil
 }
 
-// PublicKey RSA public key
+// PublicKey RSA公钥
 type PublicKey struct {
 	key *rsa.PublicKey
 }
 
-// Encrypt rsa encrypt with PKCS #1 v1.5
+// Encrypt RSA公钥 PKCS#1 v1.5 加密
 func (pk *PublicKey) Encrypt(plainText []byte) ([]byte, error) {
 	return rsa.EncryptPKCS1v15(rand.Reader, pk.key, plainText)
 }
 
-// EncryptOAEP rsa encrypt with PKCS #1 OAEP.
+// EncryptOAEP RSA公钥 PKCS#1 OAEP 加密
 func (pk *PublicKey) EncryptOAEP(hash crypto.Hash, plainText []byte) ([]byte, error) {
 	if !hash.Available() {
 		return nil, fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
@@ -295,7 +341,7 @@ func (pk *PublicKey) EncryptOAEP(hash crypto.Hash, plainText []byte) ([]byte, er
 	return rsa.EncryptOAEP(hash.New(), rand.Reader, pk.key, plainText, nil)
 }
 
-// Verify verifies the sha-with-rsa signature.
+// Verify RSA公钥验签
 func (pk *PublicKey) Verify(hash crypto.Hash, data, signature []byte) error {
 	if !hash.Available() {
 		return fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
@@ -307,7 +353,7 @@ func (pk *PublicKey) Verify(hash crypto.Hash, data, signature []byte) error {
 	return rsa.VerifyPKCS1v15(pk.key, hash, h.Sum(nil), signature)
 }
 
-// NewPublicKeyFromPemBlock returns new public key with pem block.
+// NewPublicKeyFromPemBlock 通过PEM字节生成RSA公钥
 func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey, error) {
 	block, _ := pem.Decode(pemBlock)
 
@@ -316,7 +362,7 @@ func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey,
 	}
 
 	var (
-		pk  interface{}
+		pk  any
 		err error
 	)
 
@@ -334,7 +380,7 @@ func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey,
 	return &PublicKey{key: pk.(*rsa.PublicKey)}, nil
 }
 
-// NewPublicKeyFromPemFile returns new public key with pem file.
+// NewPublicKeyFromPemFile 通过PEM文件生成RSA公钥
 func NewPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PublicKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
 
@@ -351,9 +397,9 @@ func NewPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PublicKey, e
 	return NewPublicKeyFromPemBlock(mode, b)
 }
 
-// NewPublicKeyFromDerBlock returns public key with DER block.
-// NOTE: PEM format with -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// CMD: openssl x509 -inform der -in cert.cer -out cert.pem
+// NewPublicKeyFromDerBlock 通过DER字节生成RSA公钥
+// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
+// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func NewPublicKeyFromDerBlock(pemBlock []byte) (*PublicKey, error) {
 	block, _ := pem.Decode(pemBlock)
 
@@ -370,9 +416,9 @@ func NewPublicKeyFromDerBlock(pemBlock []byte) (*PublicKey, error) {
 	return &PublicKey{key: cert.PublicKey.(*rsa.PublicKey)}, nil
 }
 
-// NewPublicKeyFromDerFile returns public key with DER file.
-// NOTE: PEM format with -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// CMD: openssl x509 -inform der -in cert.cer -out cert.pem
+// NewPublicKeyFromDerFile 通过DER文件生成RSA公钥
+// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
+// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
 

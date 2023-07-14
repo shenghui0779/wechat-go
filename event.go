@@ -87,8 +87,8 @@ func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) 
 	return plainText[20:appidOffset], nil
 }
 
-func EventReply(receiveID, token, encodingAESKey string, msg M) (M, error) {
-	str, err := FormatMToXML(msg)
+func EventReply(receiveID, token, encodingAESKey string, msg V) (V, error) {
+	str, err := FormatVToXML(msg)
 
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func EventReply(receiveID, token, encodingAESKey string, msg M) (M, error) {
 
 	encryptMsg := base64.StdEncoding.EncodeToString(b)
 
-	return M{
+	return V{
 		"Encrypt":      encryptMsg,
 		"MsgSignature": SignWithSHA1(token, timestamp, nonce, encryptMsg),
 		"TimeStamp":    timestamp,

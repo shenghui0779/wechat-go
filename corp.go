@@ -100,6 +100,10 @@ func (c *Corp) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Re
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -136,6 +140,10 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values, optio
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -179,6 +187,10 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...H
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -215,6 +227,10 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, opt
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -258,6 +274,10 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ..
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -292,6 +312,10 @@ func (c *Corp) Upload(ctx context.Context, path string, form UploadForm, options
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+	}
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -318,18 +342,18 @@ func (c *Corp) VerifyEventSign(signature string, items ...string) bool {
 }
 
 // DecryptEventMsg 事件消息解密
-func (c *Corp) DecryptEventMsg(encrypt string) (M, error) {
+func (c *Corp) DecryptEventMsg(encrypt string) (V, error) {
 	b, err := EventDecrypt(c.corpid, c.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseXMLToM(b)
+	return ParseXMLToV(b)
 }
 
 // ReplyEventMsg 事件消息回复
-func (c *Corp) ReplyEventMsg(msg M) (M, error) {
+func (c *Corp) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(c.corpid, c.token, c.aeskey, msg)
 }
 
