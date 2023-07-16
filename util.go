@@ -15,6 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/tidwall/gjson"
 	"golang.org/x/crypto/pkcs12"
@@ -33,6 +34,26 @@ func (c CDATA) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return e.EncodeElement(struct {
 		string `xml:",cdata"`
 	}{string(c)}, start)
+}
+
+// APIResult API结果 (支付v3)
+type APIResult struct {
+	Status int
+	Result gjson.Result
+}
+
+// WXPubKey 微信平台证书公钥
+type WXPubKey struct {
+	Key        *PublicKey
+	EffectedAt time.Time
+	ExpiredAt  time.Time
+}
+
+// DownloadResult 资源下载结果 (支付v3)
+type DownloadResult struct {
+	HashType  string
+	HashValue string
+	Buffer    []byte
 }
 
 // Nonce returns nonce string, param `size` better for even number.

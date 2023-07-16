@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// Pay 微信支付
 type Pay struct {
 	host   string
 	mchid  string
@@ -67,8 +68,8 @@ func (p *Pay) URL(path string, query url.Values) string {
 }
 
 // PostXML POST请求XML数据 (无证书请求)
-func (p *Pay) PostXML(ctx context.Context, appid, path string, params V, options ...HTTPOption) (V, error) {
-	params.Set("appid", appid)
+func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
@@ -118,8 +119,8 @@ func (p *Pay) PostXML(ctx context.Context, appid, path string, params V, options
 }
 
 // PostTLSXML POST请求XML数据 (带证书请求)
-func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params V, options ...HTTPOption) (V, error) {
-	params.Set("appid", appid)
+func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
@@ -169,8 +170,8 @@ func (p *Pay) PostTLSXML(ctx context.Context, appid, path string, params V, opti
 }
 
 // PostBuffer POST请求获取buffer (无证书请求，如：下载交易订单)
-func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params V, options ...HTTPOption) ([]byte, error) {
-	params.Set("appid", appid)
+func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
@@ -213,8 +214,8 @@ func (p *Pay) PostBuffer(ctx context.Context, appid, path string, params V, opti
 }
 
 // PostBuffer POST请求获取buffer (带证书请求，如：下载资金账单)
-func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params V, options ...HTTPOption) ([]byte, error) {
-	params.Set("appid", appid)
+func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
@@ -256,16 +257,16 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, appid, path string, params V, o
 	return b, nil
 }
 
-func (p *Pay) Sign(m V) string {
-	str := m.Encode("=", "&",
+func (p *Pay) Sign(v V) string {
+	str := v.Encode("=", "&",
 		WithIgnoreKeys("sign"),
-		WithEmptyEncodeMode(EmptyEncodeIgnore),
+		WithEmptyEncMode(EmptyEncIgnore),
 	) + "&key=" + p.apikey
 
-	signType := m.Get("sign_type")
+	signType := v.Get("sign_type")
 
 	if len(signType) == 0 {
-		signType = m.Get("signType")
+		signType = v.Get("signType")
 	}
 
 	if len(signType) != 0 && SignAlgo(strings.ToUpper(signType)) == SignHMacSHA256 {
@@ -275,18 +276,18 @@ func (p *Pay) Sign(m V) string {
 	return strings.ToUpper(MD5(str))
 }
 
-func (p *Pay) Verify(m V) error {
-	str := m.Encode("=", "&",
+func (p *Pay) Verify(v V) error {
+	str := v.Encode("=", "&",
 		WithIgnoreKeys("sign"),
-		WithEmptyEncodeMode(EmptyEncodeIgnore),
+		WithEmptyEncMode(EmptyEncIgnore),
 	) + "&key=" + p.apikey
 
-	wxsign := m.Get("sign")
+	wxsign := v.Get("sign")
 
-	signType := m.Get("sign_type")
+	signType := v.Get("sign_type")
 
 	if len(signType) == 0 {
-		signType = m.Get("signType")
+		signType = v.Get("signType")
 	}
 
 	if len(signType) != 0 && SignAlgo(strings.ToUpper(signType)) == SignHMacSHA256 {
@@ -325,50 +326,50 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 
 // APPAPI 用于APP拉起支付
 func (p *Pay) APPAPI(appid, prepayID string) V {
-	m := V{}
+	v := V{}
 
-	m.Set("appid", appid)
-	m.Set("partnerid", p.mchid)
-	m.Set("prepayid", prepayID)
-	m.Set("package", "Sign=WXPay")
-	m.Set("noncestr", Nonce(16))
-	m.Set("timestamp", strconv.FormatInt(time.Now().Unix(), 10))
+	v.Set("appid", appid)
+	v.Set("partnerid", p.mchid)
+	v.Set("prepayid", prepayID)
+	v.Set("package", "Sign=WXPay")
+	v.Set("noncestr", Nonce(16))
+	v.Set("timestamp", strconv.FormatInt(time.Now().Unix(), 10))
 
-	m.Set("sign", p.Sign(m))
+	v.Set("sign", p.Sign(v))
 
-	return m
+	return v
 }
 
 // JSAPI 用于JS拉起支付
 func (p *Pay) JSAPI(appid, prepayID string) V {
-	m := V{}
+	v := V{}
 
-	m.Set("appId", appid)
-	m.Set("nonceStr", Nonce(16))
-	m.Set("package", "prepay_id="+prepayID)
-	m.Set("signType", "MD5")
-	m.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
+	v.Set("appId", appid)
+	v.Set("nonceStr", Nonce(16))
+	v.Set("package", "prepay_id="+prepayID)
+	v.Set("signType", "MD5")
+	v.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
 
-	m.Set("paySign", p.Sign(m))
+	v.Set("paySign", p.Sign(v))
 
-	return m
+	return v
 }
 
 // MinipRedpackJSAPI 小程序领取红包
 func (p *Pay) MinipRedpackJSAPI(appid, pkg string) V {
-	m := V{}
+	v := V{}
 
-	m.Set("appId", appid)
-	m.Set("nonceStr", Nonce(16))
-	m.Set("package", url.QueryEscape(pkg))
-	m.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
-	m.Set("signType", "MD5")
+	v.Set("appId", appid)
+	v.Set("nonceStr", Nonce(16))
+	v.Set("package", url.QueryEscape(pkg))
+	v.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
+	v.Set("signType", "MD5")
 
-	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", appid, m.Get("nonceStr"), m.Get("package"), m.Get("timeStamp"), p.apikey)
+	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", appid, v.Get("nonceStr"), v.Get("package"), v.Get("timeStamp"), p.apikey)
 
-	m.Set("paySign", MD5(signStr))
+	v.Set("paySign", MD5(signStr))
 
-	return m
+	return v
 }
 
 func NewPay(mchid, apikey string) *Pay {

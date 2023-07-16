@@ -123,7 +123,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -164,7 +164,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -210,7 +210,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -251,7 +251,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected http status %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -297,7 +297,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected http status %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -335,7 +335,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected status %d", resp.StatusCode))
+		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
