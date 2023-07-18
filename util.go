@@ -13,7 +13,7 @@ import (
 	"encoding/pem"
 	"encoding/xml"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -149,7 +149,7 @@ func LoadCertFromPfxFile(pfxfile, mchid string) (tls.Certificate, error) {
 		return fail(err)
 	}
 
-	pfxdata, err := ioutil.ReadFile(certPath)
+	pfxdata, err := os.ReadFile(certPath)
 
 	if err != nil {
 		return fail(err)
