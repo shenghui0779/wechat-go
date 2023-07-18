@@ -121,10 +121,10 @@ func DecodeBytesToUint32(b []byte) uint32 {
 func MarshalNoEscapeHTML(v interface{}) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	jsonEncoder := json.NewEncoder(buf)
-	jsonEncoder.SetEscapeHTML(false)
+	encoder := json.NewEncoder(buf)
+	encoder.SetEscapeHTML(false)
 
-	if err := jsonEncoder.Encode(v); err != nil {
+	if err := encoder.Encode(v); err != nil {
 		return nil, err
 	}
 
