@@ -38,8 +38,8 @@ func (c CDATA) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 // APIResult API结果 (支付v3)
 type APIResult struct {
-	Status int
-	Result gjson.Result
+	Code int // HTTP状态码
+	Body gjson.Result
 }
 
 // WXPubKey 微信平台证书公钥

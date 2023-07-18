@@ -95,8 +95,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil
@@ -138,8 +138,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil
@@ -175,8 +175,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil
