@@ -140,10 +140,10 @@ func MarshalNoEscapeHTML(v interface{}) ([]byte, error) {
 }
 
 // LoadCertFromPfxFile 通过pfx(p12)证书文件生成TLS证书
-func LoadCertFromPfxFile(pfxfile, mchid string) (tls.Certificate, error) {
+func LoadCertFromPfxFile(filename, password string) (tls.Certificate, error) {
 	fail := func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
 
-	certPath, err := filepath.Abs(filepath.Clean(pfxfile))
+	certPath, err := filepath.Abs(filepath.Clean(filename))
 
 	if err != nil {
 		return fail(err)
@@ -155,7 +155,7 @@ func LoadCertFromPfxFile(pfxfile, mchid string) (tls.Certificate, error) {
 		return fail(err)
 	}
 
-	blocks, err := pkcs12.ToPEM(pfxdata, mchid)
+	blocks, err := pkcs12.ToPEM(pfxdata, password)
 
 	if err != nil {
 		return fail(err)
