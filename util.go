@@ -140,6 +140,7 @@ func MarshalNoEscapeHTML(v interface{}) ([]byte, error) {
 }
 
 // LoadCertFromPfxFile 通过pfx(p12)证书文件生成TLS证书
+// 注意：证书需采用「TripleDES-SHA1」加密方式
 func LoadCertFromPfxFile(filename, password string) (tls.Certificate, error) {
 	fail := func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
 
