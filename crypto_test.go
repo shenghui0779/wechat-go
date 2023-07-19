@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCBCCrypto(t *testing.T) {
+func TestAesCBC(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	iv := key[:aes.BlockSize]
 	plainText := "Iloveyiigo"
 
 	// ZERO_PADDING
-	zero := NewCBCCrypto(key, iv, AES_ZERO)
+	zero := NewAesCBC(key, iv, AES_ZERO)
 
 	e0b, err := zero.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
@@ -24,7 +24,7 @@ func TestCBCCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d0b))
 
 	// PKCS5_PADDING
-	pkcs5 := NewCBCCrypto(key, iv, AES_PKCS5)
+	pkcs5 := NewAesCBC(key, iv, AES_PKCS5)
 
 	e5b, err := pkcs5.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
@@ -34,7 +34,7 @@ func TestCBCCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d5b))
 
 	// PKCS7_PADDING
-	pkcs7 := NewCBCCrypto(key, iv, AES_PKCS7)
+	pkcs7 := NewAesCBC(key, iv, AES_PKCS7)
 
 	e7b, err := pkcs7.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
@@ -44,12 +44,12 @@ func TestCBCCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d7b))
 }
 
-func TestECBCrypto(t *testing.T) {
+func TestAesECB(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	plainText := "Iloveyiigo"
 
 	// ZERO_PADDING
-	zero := NewECBCrypto(key, AES_ZERO)
+	zero := NewAesECB(key, AES_ZERO)
 
 	e0b, err := zero.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
@@ -59,7 +59,7 @@ func TestECBCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d0b))
 
 	// PKCS5_PADDING
-	pkcs5 := NewECBCrypto(key, AES_PKCS5)
+	pkcs5 := NewAesECB(key, AES_PKCS5)
 
 	e5b, err := pkcs5.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
@@ -69,7 +69,7 @@ func TestECBCrypto(t *testing.T) {
 	assert.Equal(t, plainText, string(d5b))
 
 	// PKCS7_PADDING
-	pkcs7 := NewECBCrypto(key, AES_PKCS7)
+	pkcs7 := NewAesECB(key, AES_PKCS7)
 
 	e7b, err := pkcs7.Encrypt([]byte(plainText))
 	assert.Nil(t, err)
