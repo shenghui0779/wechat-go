@@ -2,7 +2,6 @@ package wechat
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -33,16 +32,24 @@ func (p *Pay) ApiKey() string {
 }
 
 // SetTLSCert 设置TLS证书
-func (p *Pay) SetTLSCert(cert tls.Certificate) {
+func (p *Pay) SetCertificate(pfxFile string) error {
+	cert, err := LoadCertFromPfxFile(pfxFile, p.mchid)
+
+	if err != nil {
+		return err
+	}
+
 	p.tlscli = NewDefaultClient(cert)
+
+	return nil
 }
 
-// SetHTTPClient 设置无证书 HTTP Client
+// SetHTTPClient 设置自定义无证书Client
 func (p *Pay) SetHTTPClient(c *http.Client) {
 	p.client = NewHTTPClient(c)
 }
 
-// SetTLSClient 设置带证书 HTTP Client
+// SetTLSClient 设置自定义带证书Client
 func (p *Pay) SetTLSClient(c *http.Client) {
 	p.tlscli = NewHTTPClient(c)
 }

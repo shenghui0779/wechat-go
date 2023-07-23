@@ -223,7 +223,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 		return wxkey.Key, nil
 	}
 
-	ret, err := p.getcerts(ctx)
+	ret, err := p.getPubCerts(ctx)
 
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	return pubkey, nil
 }
 
-func (p *PayV3) getcerts(ctx context.Context) (gjson.Result, error) {
+func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 	path := "/v3/certificates"
 
 	authStr, err := p.Authorization(http.MethodGet, path, nil, nil)
@@ -347,6 +347,10 @@ func (p *PayV3) getcerts(ctx context.Context) (gjson.Result, error) {
 
 // Authorization 生成签名并返回 HTTP Authorization
 func (p *PayV3) Authorization(method, path string, query url.Values, body []byte) (string, error) {
+	if p.prvkey == nil {
+		return "", errors.New("private key not found (forgotten configure?)")
+	}
+
 	var builder strings.Builder
 
 	nonce := Nonce(32)
@@ -484,13 +488,12 @@ func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
 	return v, nil
 }
 
-func NewPayV3(mchid, apikey, serialNO string, privateKey *PrivateKey) *PayV3 {
+func NewPayV3(mchid, apikey, serialNO string) *PayV3 {
 	return &PayV3{
 		host:   "https://api.mch.weixin.qq.com",
 		mchid:  mchid,
 		apikey: apikey,
 		serial: serialNO,
-		prvkey: privateKey,
 		client: NewDefaultClient(),
 	}
 }
