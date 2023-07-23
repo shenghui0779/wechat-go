@@ -34,15 +34,15 @@ const (
 
 // ------------------------------------ AES ------------------------------------
 
-// AES-CBC 加密算法
-type CBCCrypto struct {
+// AES-CBC 加密模式
+type AesCBC struct {
 	key  []byte
 	iv   []byte
 	mode AESPaddingMode
 }
 
 // Encrypt AES-CBC 加密
-func (c *CBCCrypto) Encrypt(plainText []byte) ([]byte, error) {
+func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *CBCCrypto) Encrypt(plainText []byte) ([]byte, error) {
 }
 
 // Decrypt AES-CBC 解密
-func (c *CBCCrypto) Decrypt(cipherText []byte) ([]byte, error) {
+func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -99,23 +99,23 @@ func (c *CBCCrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-// NewCBCCrypto 生成 AES-CBC 加密模式
-func NewCBCCrypto(key, iv []byte, mode AESPaddingMode) *CBCCrypto {
-	return &CBCCrypto{
+// NewAesCBC 生成 AES-CBC 加密模式
+func NewAesCBC(key, iv []byte, mode AESPaddingMode) *AesCBC {
+	return &AesCBC{
 		key:  key,
 		iv:   iv,
 		mode: mode,
 	}
 }
 
-// AES-ECB 加密算法
-type ECBCrypto struct {
+// AES-ECB 加密模式
+type AesECB struct {
 	key  []byte
 	mode AESPaddingMode
 }
 
 // Encrypt AES-ECB 加密
-func (c *ECBCrypto) Encrypt(plainText []byte) ([]byte, error) {
+func (c *AesECB) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -140,7 +140,7 @@ func (c *ECBCrypto) Encrypt(plainText []byte) ([]byte, error) {
 }
 
 // Decrypt AES-ECB 解密
-func (c *ECBCrypto) Decrypt(cipherText []byte) ([]byte, error) {
+func (c *AesECB) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -164,9 +164,9 @@ func (c *ECBCrypto) Decrypt(cipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-// NewECBCrypto 生成 AES-ECB 加密模式
-func NewECBCrypto(key []byte, mode AESPaddingMode) *ECBCrypto {
-	return &ECBCrypto{
+// NewAesECB 生成 AES-ECB 加密模式
+func NewAesECB(key []byte, mode AESPaddingMode) *AesECB {
+	return &AesECB{
 		key:  key,
 		mode: mode,
 	}
@@ -311,7 +311,8 @@ func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey,
 	return NewPrivateKeyFromPemBlock(mode, b)
 }
 
-// NewPrivateKeyFromPfxFile 通过pfx(p12)文件生成RSA私钥
+// NewPrivateKeyFromPfxFile 通过pfx(p12)证书生成RSA私钥
+// 注意：证书需采用「TripleDES-SHA1」加密方式
 func NewPrivateKeyFromPfxFile(pfxFile, password string) (*PrivateKey, error) {
 	cert, err := LoadCertFromPfxFile(pfxFile, password)
 
@@ -416,7 +417,7 @@ func NewPublicKeyFromDerBlock(pemBlock []byte) (*PublicKey, error) {
 	return &PublicKey{key: cert.PublicKey.(*rsa.PublicKey)}, nil
 }
 
-// NewPublicKeyFromDerFile 通过DER文件生成RSA公钥
+// NewPublicKeyFromDerFile 通过DER证书生成RSA公钥
 // 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
@@ -471,7 +472,7 @@ func PKCS5Unpadding(plainText []byte, blockSize int) []byte {
 	return plainText[:(length - unpadding)]
 }
 
-// --------------------------------- AES-256-ECB ---------------------------------
+// --------------------------------- ECB BlockMode ---------------------------------
 
 type ecb struct {
 	b         cipher.Block
@@ -505,6 +506,7 @@ func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
 
 	for len(src) > 0 {
 		x.b.Encrypt(dst, src[:x.blockSize])
+
 		src = src[x.blockSize:]
 		dst = dst[x.blockSize:]
 	}

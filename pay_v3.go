@@ -45,6 +45,28 @@ func (p *PayV3) SetHTTPClient(c *http.Client) {
 	p.client = NewHTTPClient(c)
 }
 
+// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
+
+	return
+}
+
+// SetPrivateKeyFromPemFile  通过PEM文件设置RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPemFile(mode, pemFile)
+
+	return
+}
+
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
+// 注意：证书需采用「TripleDES-SHA1」加密方式
+func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
+
+	return
+}
+
 // URL 生成请求URL
 func (p *PayV3) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -95,8 +117,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil
@@ -138,8 +160,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil
@@ -175,8 +197,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	}
 
 	ret := &APIResult{
-		Status: resp.StatusCode,
-		Result: gjson.ParseBytes(b),
+		Code: resp.StatusCode,
+		Body: gjson.ParseBytes(b),
 	}
 
 	return ret, nil

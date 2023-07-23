@@ -320,7 +320,7 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 		return nil, err
 	}
 
-	ecb := NewECBCrypto([]byte(MD5(p.apikey)), AES_PKCS7)
+	ecb := NewAesECB([]byte(MD5(p.apikey)), AES_PKCS7)
 
 	plainText, err := ecb.Decrypt(cipherText)
 

@@ -45,7 +45,7 @@ func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]
 	copy(encryptData[20:], plainText)
 	copy(encryptData[appidOffset:], receiveID)
 
-	cbc := NewCBCCrypto(key, key[:aes.BlockSize], AES_PKCS7)
+	cbc := NewAesCBC(key, key[:aes.BlockSize], AES_PKCS7)
 	cipherText, err := cbc.Encrypt(encryptData)
 
 	if err != nil {
@@ -70,7 +70,7 @@ func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) 
 		return nil, err
 	}
 
-	cbc := NewCBCCrypto(key, key[:aes.BlockSize], AES_PKCS7)
+	cbc := NewAesCBC(key, key[:aes.BlockSize], AES_PKCS7)
 	plainText, err := cbc.Decrypt(decryptData)
 
 	if err != nil {
