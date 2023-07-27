@@ -11,7 +11,7 @@ import (
 func TestAesCBC(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	iv := key[:aes.BlockSize]
-	plainText := "Iloveyiigo"
+	plainText := "ILoveYiigo"
 
 	// ZERO_PADDING
 	zero := NewAesCBC(key, iv, AES_ZERO)
@@ -46,7 +46,7 @@ func TestAesCBC(t *testing.T) {
 
 func TestAesECB(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
-	plainText := "Iloveyiigo"
+	plainText := "ILoveYiigo"
 
 	// ZERO_PADDING
 	zero := NewAesECB(key, AES_ZERO)
@@ -132,7 +132,7 @@ t6RsET7ZhCU8m8/6gIS5lZRoJt1aoqL3UyfFdWVA8pZwihDnEHvp1+0yl2BBaAN1
 Vv8zI7kt+uZxD5mBGglKs2wzaHqADBXa5kSznIvkcZSg07UQQYU6
 -----END RSA PRIVATE KEY-----`)
 
-	plainText := "IloveGochat"
+	plainText := "ILoveYiigo"
 
 	pvtKey, err := NewPrivateKeyFromPemBlock(RSA_PKCS1, privateKey)
 

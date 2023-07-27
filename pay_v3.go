@@ -45,6 +45,28 @@ func (p *PayV3) SetHTTPClient(c *http.Client) {
 	p.client = NewHTTPClient(c)
 }
 
+// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
+
+	return
+}
+
+// SetPrivateKeyFromPemFile  通过PEM文件设置RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPemFile(mode, pemFile)
+
+	return
+}
+
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
+// 注意：证书需采用「TripleDES-SHA1」加密方式
+func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
+	p.prvkey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
+
+	return
+}
+
 // URL 生成请求URL
 func (p *PayV3) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -223,7 +245,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 		return wxkey.Key, nil
 	}
 
-	ret, err := p.getcerts(ctx)
+	ret, err := p.getPubCerts(ctx)
 
 	if err != nil {
 		return nil, err
@@ -267,7 +289,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	return pubkey, nil
 }
 
-func (p *PayV3) getcerts(ctx context.Context) (gjson.Result, error) {
+func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 	path := "/v3/certificates"
 
 	authStr, err := p.Authorization(http.MethodGet, path, nil, nil)
@@ -347,6 +369,10 @@ func (p *PayV3) getcerts(ctx context.Context) (gjson.Result, error) {
 
 // Authorization 生成签名并返回 HTTP Authorization
 func (p *PayV3) Authorization(method, path string, query url.Values, body []byte) (string, error) {
+	if p.prvkey == nil {
+		return "", errors.New("private key not found (forgotten configure?)")
+	}
+
 	var builder strings.Builder
 
 	nonce := Nonce(32)
@@ -484,13 +510,12 @@ func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
 	return v, nil
 }
 
-func NewPayV3(mchid, apikey, serialNO string, privateKey *PrivateKey) *PayV3 {
+func NewPayV3(mchid, apikey, serialNO string) *PayV3 {
 	return &PayV3{
 		host:   "https://api.mch.weixin.qq.com",
 		mchid:  mchid,
 		apikey: apikey,
 		serial: serialNO,
-		prvkey: privateKey,
 		client: NewDefaultClient(),
 	}
 }
