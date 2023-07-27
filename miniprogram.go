@@ -20,7 +20,7 @@ type MiniProgram struct {
 	token  string
 	aeskey string
 	client HTTPClient
-	access func(ctx context.Context) (string, error)
+	access func(ctx context.Context, cli *MiniProgram) (string, error)
 }
 
 // AppID 返回AppID
@@ -46,7 +46,7 @@ func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
 }
 
 // WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
-func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context) (string, error)) {
+func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context, cli *MiniProgram) (string, error)) {
 	mp.access = f
 }
 
@@ -88,7 +88,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -123,7 +123,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -143,7 +143,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 
 // GetJSON GET请求JSON数据
 func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
-	token, err := mp.access(ctx)
+	token, err := mp.access(ctx, mp)
 
 	if err != nil {
 		return fail(err)
@@ -164,7 +164,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -184,7 +184,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 
 // PostJSON POST请求JSON数据
 func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
-	token, err := mp.access(ctx)
+	token, err := mp.access(ctx, mp)
 
 	if err != nil {
 		return fail(err)
@@ -210,7 +210,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -230,7 +230,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
-	token, err := mp.access(ctx)
+	token, err := mp.access(ctx, mp)
 
 	if err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -271,7 +271,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
 func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
-	token, err := mp.access(ctx)
+	token, err := mp.access(ctx, mp)
 
 	if err != nil {
 		return nil, err
@@ -297,7 +297,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -317,7 +317,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 
 // Upload 上传媒体资源
 func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
-	token, err := mp.access(ctx)
+	token, err := mp.access(ctx, mp)
 
 	if err != nil {
 		return fail(err)
@@ -335,7 +335,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)

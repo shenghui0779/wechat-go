@@ -88,7 +88,7 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -139,7 +139,7 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)

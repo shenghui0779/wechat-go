@@ -20,7 +20,7 @@ type OfficialAccount struct {
 	token  string
 	aeskey string
 	client HTTPClient
-	access func(ctx context.Context) (string, error)
+	access func(ctx context.Context, cli *OfficialAccount) (string, error)
 }
 
 // AppID returns appid
@@ -46,7 +46,7 @@ func (oa *OfficialAccount) SetHTTPClient(c *http.Client) {
 }
 
 // WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
-func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context) (string, error)) {
+func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context, cli *OfficialAccount) (string, error)) {
 	oa.access = f
 }
 
@@ -116,7 +116,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -151,7 +151,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -186,7 +186,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -206,7 +206,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 
 // GetJSON GET请求JSON数据
 func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
-	token, err := oa.access(ctx)
+	token, err := oa.access(ctx, oa)
 
 	if err != nil {
 		return fail(err)
@@ -227,7 +227,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -247,7 +247,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 
 // PostJSON POST请求JSON数据
 func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
-	token, err := oa.access(ctx)
+	token, err := oa.access(ctx, oa)
 
 	if err != nil {
 		return fail(err)
@@ -273,7 +273,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -293,7 +293,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
-	token, err := oa.access(ctx)
+	token, err := oa.access(ctx, oa)
 
 	if err != nil {
 		return nil, err
@@ -314,7 +314,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -334,7 +334,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
 func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
-	token, err := oa.access(ctx)
+	token, err := oa.access(ctx, oa)
 
 	if err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -380,7 +380,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 
 // Upload 上传媒体资源
 func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
-	token, err := oa.access(ctx)
+	token, err := oa.access(ctx, oa)
 
 	if err != nil {
 		return fail(err)
@@ -398,7 +398,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)

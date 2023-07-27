@@ -101,7 +101,7 @@ func (c *Corp) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Re
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -142,7 +142,7 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values, optio
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -188,7 +188,7 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...H
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -229,7 +229,7 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, opt
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -275,7 +275,7 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ..
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -313,7 +313,7 @@ func (c *Corp) Upload(ctx context.Context, path string, form UploadForm, options
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
