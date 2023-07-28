@@ -28,6 +28,7 @@ type PayV3 struct {
 	pubkeyM map[string]*WXPubKey
 	client  HTTPClient
 	mutex   sync.Mutex
+	logger  func(ctx context.Context, method, url, body, resp string)
 }
 
 // MchID 返回mchid
@@ -67,6 +68,11 @@ func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
 	return
 }
 
+// WithLogger 设置日志记录
+func (p *PayV3) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+	p.logger = f
+}
+
 // URL 生成请求URL
 func (p *PayV3) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -89,6 +95,11 @@ func (p *PayV3) URL(path string, query url.Values) string {
 
 // GetJSON GET请求JSON数据
 func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (*APIResult, error) {
+	reqURL := p.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	authStr, err := p.Authorization(http.MethodGet, path, query, nil)
 
 	if err != nil {
@@ -97,7 +108,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
 
-	resp, err := p.client.Do(ctx, http.MethodGet, p.URL(path, query), nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -110,6 +121,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -126,11 +139,18 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 // PostJSON POST请求JSON数据
 func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (*APIResult, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	body, err := json.Marshal(params)
 
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetBody(string(body))
 
 	authStr, err := p.Authorization(http.MethodGet, path, nil, body)
 
@@ -140,7 +160,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json"))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, p.URL(path, nil), nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -153,6 +173,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -169,6 +191,11 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 // Upload 上传资源
 func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (*APIResult, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	authStr, err := p.Authorization(http.MethodPost, path, nil, []byte(form.Field("meta")))
 
 	if err != nil {
@@ -177,7 +204,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, p.URL(path, nil), nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -190,6 +217,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -206,6 +235,9 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 // Download 下载资源 (需先获取download_url)
 func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, options ...HTTPOption) error {
+	log := NewReqLog(http.MethodGet, downloadURL)
+	defer log.Do(ctx, p.logger)
+
 	// 获取 download_url
 	authStr, err := p.Authorization(http.MethodGet, downloadURL, nil, nil)
 

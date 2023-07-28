@@ -21,6 +21,7 @@ type OfficialAccount struct {
 	aeskey string
 	client HTTPClient
 	access func(ctx context.Context, cli *OfficialAccount) (string, error)
+	logger func(ctx context.Context, method, url, body, resp string)
 }
 
 // AppID returns appid
@@ -48,6 +49,11 @@ func (oa *OfficialAccount) SetHTTPClient(c *http.Client) {
 // WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
 func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context, cli *OfficialAccount) (string, error)) {
 	oa.access = f
+}
+
+// WithLogger 设置日志记录
+func (oa *OfficialAccount) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+	oa.logger = f
 }
 
 // URL 生成请求URL
@@ -107,7 +113,12 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 	query.Set("code", code)
 	query.Set("grant_type", "authorization_code")
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/sns/oauth2/access_token", query), nil, options...)
+	reqURL := oa.URL("/sns/oauth2/access_token", query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -124,6 +135,8 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -142,7 +155,12 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	query.Set("grant_type", "refresh_token")
 	query.Set("refresh_token", refreshToken)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/sns/oauth2/refresh_token", query), nil, options...)
+	reqURL := oa.URL("/sns/oauth2/refresh_token", query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -159,6 +177,8 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -177,7 +197,12 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	query.Set("secret", oa.secret)
 	query.Set("grant_type", "client_credential")
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL("/cgi-bin/token", query), nil, options...)
+	reqURL := oa.URL("/cgi-bin/token", query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -194,6 +219,8 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -218,7 +245,12 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 
 	query.Set("access_token", token)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL(path, query), nil, options...)
+	reqURL := oa.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -235,6 +267,8 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -253,18 +287,25 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 		return fail(err)
 	}
 
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	reqURL := oa.URL(path, query)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, oa.logger)
+
 	body, err := json.Marshal(params)
 
 	if err != nil {
 		return fail(err)
 	}
 
-	query := url.Values{}
-	query.Set("access_token", token)
+	log.SetBody(string(body))
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, oa.URL(path, query), body, options...)
+	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
 	if err != nil {
 		return fail(err)
@@ -281,6 +322,8 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -305,7 +348,12 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 
 	query.Set("access_token", token)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, oa.URL(path, query), nil, options...)
+	reqURL := oa.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -322,6 +370,8 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -340,18 +390,25 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 		return nil, err
 	}
 
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	reqURL := oa.URL(path, query)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, oa.logger)
+
 	body, err := json.Marshal(params)
 
 	if err != nil {
 		return nil, err
 	}
 
-	query := url.Values{}
-	query.Set("access_token", token)
+	log.SetBody(string(body))
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, oa.URL(path, query), body, options...)
+	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
 	if err != nil {
 		return nil, err
@@ -368,6 +425,8 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -389,7 +448,12 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	query := url.Values{}
 	query.Set("access_token", token)
 
-	resp, err := oa.client.Upload(ctx, oa.URL(path, query), form, options...)
+	reqURL := oa.URL(path, query)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	resp, err := oa.client.Upload(ctx, reqURL, form, options...)
 
 	if err != nil {
 		return fail(err)
@@ -406,6 +470,8 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 

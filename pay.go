@@ -19,6 +19,7 @@ type Pay struct {
 	apikey string
 	client HTTPClient
 	tlscli HTTPClient
+	logger func(ctx context.Context, method, url, body, resp string)
 }
 
 // MchID 返回mchid
@@ -54,6 +55,11 @@ func (p *Pay) SetTLSClient(c *http.Client) {
 	p.tlscli = NewHTTPClient(c)
 }
 
+// WithLogger 设置日志记录
+func (p *Pay) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+	p.logger = f
+}
+
 // URL 生成请求URL
 func (p *Pay) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -76,6 +82,11 @@ func (p *Pay) URL(path string, query url.Values) string {
 
 // PostXML POST请求XML数据 (无证书请求)
 func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
@@ -86,7 +97,9 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 		return nil, err
 	}
 
-	resp, err := p.client.Do(ctx, http.MethodPost, p.URL(path, nil), []byte(body), options...)
+	log.SetBody(string(body))
+
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
 
 	if err != nil {
 		return nil, err
@@ -103,6 +116,8 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -127,6 +142,11 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 
 // PostTLSXML POST请求XML数据 (带证书请求)
 func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
@@ -137,7 +157,9 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, p.URL(path, nil), []byte(body), options...)
+	log.SetBody(string(body))
+
+	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
 
 	if err != nil {
 		return nil, err
@@ -154,6 +176,8 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -178,6 +202,11 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 
 // PostBuffer POST请求获取buffer (无证书请求，如：下载交易订单)
 func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
@@ -188,7 +217,9 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	resp, err := p.client.Do(ctx, http.MethodPost, p.URL(path, nil), []byte(body), options...)
+	log.SetBody(string(body))
+
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
 
 	if err != nil {
 		return nil, err
@@ -205,6 +236,8 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -222,6 +255,11 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 
 // PostBuffer POST请求获取buffer (带证书请求，如：下载资金账单)
 func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+	reqURL := p.URL(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
 	params.Set("mch_id", p.mchid)
 	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
@@ -232,7 +270,9 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 		return nil, err
 	}
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, p.URL(path, nil), []byte(body), options...)
+	log.SetBody(string(body))
+
+	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
 
 	if err != nil {
 		return nil, err
@@ -249,6 +289,8 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret, err := ParseXMLToV(b)
 

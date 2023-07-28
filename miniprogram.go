@@ -21,6 +21,7 @@ type MiniProgram struct {
 	aeskey string
 	client HTTPClient
 	access func(ctx context.Context, cli *MiniProgram) (string, error)
+	logger func(ctx context.Context, method, url, body, resp string)
 }
 
 // AppID 返回AppID
@@ -48,6 +49,11 @@ func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
 // WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
 func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context, cli *MiniProgram) (string, error)) {
 	mp.access = f
+}
+
+// WithLogger 设置日志记录
+func (mp *MiniProgram) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+	mp.logger = f
 }
 
 // URL 生成请求URL
@@ -79,7 +85,12 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 	query.Set("js_code", code)
 	query.Set("grant_type", "authorization_code")
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, mp.URL("/sns/jscode2session", query), nil, options...)
+	reqURL := mp.URL("/sns/jscode2session", query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -96,6 +107,8 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -114,7 +127,12 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	query.Set("secret", mp.secret)
 	query.Set("grant_type", "client_credential")
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, mp.URL("/cgi-bin/token", query), nil, options...)
+	reqURL := mp.URL("/cgi-bin/token", query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -131,6 +149,8 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -155,7 +175,12 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 
 	query.Set("access_token", token)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, mp.URL(path, query), nil, options...)
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return fail(err)
@@ -172,6 +197,8 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -190,18 +217,25 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 		return fail(err)
 	}
 
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
 	body, err := json.Marshal(params)
 
 	if err != nil {
 		return fail(err)
 	}
 
-	query := url.Values{}
-	query.Set("access_token", token)
+	log.SetBody(string(body))
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, mp.URL(path, query), body, options...)
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
 	if err != nil {
 		return fail(err)
@@ -218,6 +252,8 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -242,7 +278,12 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 
 	query.Set("access_token", token)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, mp.URL(path, query), nil, options...)
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
 	if err != nil {
 		return nil, err
@@ -259,6 +300,8 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -277,18 +320,25 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 		return nil, err
 	}
 
+	query := url.Values{}
+	query.Set("access_token", token)
+
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
 	body, err := json.Marshal(params)
 
 	if err != nil {
 		return nil, err
 	}
 
-	query := url.Values{}
-	query.Set("access_token", token)
+	log.SetBody(string(body))
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, mp.URL(path, query), body, options...)
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
 	if err != nil {
 		return nil, err
@@ -305,6 +355,8 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -326,7 +378,12 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	query := url.Values{}
 	query.Set("access_token", token)
 
-	resp, err := mp.client.Upload(ctx, mp.URL(path, query), form, options...)
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	resp, err := mp.client.Upload(ctx, reqURL, form, options...)
 
 	if err != nil {
 		return fail(err)
@@ -343,6 +400,8 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	ret := gjson.ParseBytes(b)
 
