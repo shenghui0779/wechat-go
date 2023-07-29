@@ -19,7 +19,7 @@ type Pay struct {
 	apikey string
 	client HTTPClient
 	tlscli HTTPClient
-	logger func(ctx context.Context, method, url, body, resp string)
+	logger func(ctx context.Context, data map[string]string)
 }
 
 // MchID 返回mchid
@@ -56,7 +56,7 @@ func (p *Pay) SetTLSClient(c *http.Client) {
 }
 
 // WithLogger 设置日志记录
-func (p *Pay) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	p.logger = f
 }
 
@@ -106,6 +106,8 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
@@ -167,6 +169,8 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
@@ -227,6 +231,8 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
 	}
@@ -279,6 +285,8 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)

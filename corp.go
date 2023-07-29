@@ -21,7 +21,7 @@ type Corp struct {
 	aeskey string
 	client HTTPClient
 	access func(ctx context.Context, cli *Corp) (string, error)
-	logger func(ctx context.Context, method, url, body, resp string)
+	logger func(ctx context.Context, data map[string]string)
 }
 
 // AppID 返回AppID
@@ -52,7 +52,7 @@ func (c *Corp) WithAccessToken(f func(ctx context.Context, cli *Corp) (string, e
 }
 
 // WithLogger 设置日志记录
-func (c *Corp) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (c *Corp) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	c.logger = f
 }
 
@@ -111,6 +111,8 @@ func (c *Corp) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Re
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -158,6 +160,8 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values, optio
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -214,6 +218,8 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...H
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -261,6 +267,8 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values, opt
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
@@ -317,6 +325,8 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ..
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
@@ -361,6 +371,8 @@ func (c *Corp) Upload(ctx context.Context, path string, form UploadForm, options
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))

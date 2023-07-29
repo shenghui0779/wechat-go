@@ -21,7 +21,7 @@ type OfficialAccount struct {
 	aeskey string
 	client HTTPClient
 	access func(ctx context.Context, cli *OfficialAccount) (string, error)
-	logger func(ctx context.Context, method, url, body, resp string)
+	logger func(ctx context.Context, data map[string]string)
 }
 
 // AppID returns appid
@@ -52,7 +52,7 @@ func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context, cli *Offi
 }
 
 // WithLogger 设置日志记录
-func (oa *OfficialAccount) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (oa *OfficialAccount) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	oa.logger = f
 }
 
@@ -126,6 +126,8 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -168,6 +170,8 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -209,6 +213,8 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -257,6 +263,8 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -313,6 +321,8 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -360,6 +370,8 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
@@ -416,6 +428,8 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
@@ -460,6 +474,8 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))

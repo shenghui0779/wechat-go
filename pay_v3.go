@@ -28,7 +28,7 @@ type PayV3 struct {
 	pubkeyM map[string]*WXPubKey
 	client  HTTPClient
 	mutex   sync.Mutex
-	logger  func(ctx context.Context, method, url, body, resp string)
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // MchID 返回mchid
@@ -69,7 +69,7 @@ func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
 }
 
 // WithLogger 设置日志记录
-func (p *PayV3) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (p *PayV3) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	p.logger = f
 }
 
@@ -106,6 +106,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 		return nil, err
 	}
 
+	log.Set("Authorization", authStr)
+
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
@@ -115,6 +117,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -158,6 +162,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 		return nil, err
 	}
 
+	log.Set("Authorization", authStr)
+
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json"))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
@@ -167,6 +173,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -202,6 +210,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 		return nil, err
 	}
 
+	log.Set("Authorization", authStr)
+
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
@@ -211,6 +221,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -245,6 +257,8 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 		return err
 	}
 
+	log.Set("Authorization", authStr)
+
 	options = append(options, WithHTTPHeader("Authorization", authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, options...)
@@ -254,6 +268,8 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	_, err = io.Copy(w, resp.Body)
 
@@ -322,15 +338,20 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 }
 
 func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
-	path := "/v3/certificates"
+	reqURL := p.URL("/v3/certificates", nil)
 
-	authStr, err := p.Authorization(http.MethodGet, path, nil, nil)
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
+	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, nil)
 
 	if err != nil {
 		return fail(err)
 	}
 
-	resp, err := p.client.Do(ctx, http.MethodGet, p.URL(path, nil), nil, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
+	log.Set("Authorization", authStr)
+
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
 
 	if err != nil {
 		return fail(err)
@@ -338,22 +359,31 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		return fail(err)
 	}
 
+	log.SetResp(string(b))
+
 	if resp.StatusCode >= 300 {
 		return fail(errors.New(string(b)))
 	}
+
+	ret := gjson.ParseBytes(b).Get("data")
 
 	nonce := resp.Header.Get("Wechatpay-Nonce")
 	timestamp := resp.Header.Get("Wechatpay-Timestamp")
 	serial := resp.Header.Get("Wechatpay-Serial")
 	wxsign := resp.Header.Get("Wechatpay-Signature")
 
-	ret := gjson.ParseBytes(b).Get("data")
+	log.Set("Wechatpay-Nonce", nonce)
+	log.Set("Wechatpay-Timestamp", timestamp)
+	log.Set("Wechatpay-Serial", serial)
+	log.Set("Wechatpay-Signature", wxsign)
 
 	valid := false
 

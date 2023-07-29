@@ -21,7 +21,7 @@ type MiniProgram struct {
 	aeskey string
 	client HTTPClient
 	access func(ctx context.Context, cli *MiniProgram) (string, error)
-	logger func(ctx context.Context, method, url, body, resp string)
+	logger func(ctx context.Context, data map[string]string)
 }
 
 // AppID 返回AppID
@@ -52,7 +52,7 @@ func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context, cli *MiniProg
 }
 
 // WithLogger 设置日志记录
-func (mp *MiniProgram) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (mp *MiniProgram) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	mp.logger = f
 }
 
@@ -98,6 +98,8 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -139,6 +141,8 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -188,6 +192,8 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
@@ -222,7 +228,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 
 	reqURL := mp.URL(path, query)
 
-	log := NewReqLog(http.MethodGet, reqURL)
+	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, mp.logger)
 
 	body, err := json.Marshal(params)
@@ -242,6 +248,8 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -291,6 +299,8 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 
 	defer resp.Body.Close()
 
+	log.SetStatusCode(resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
@@ -325,7 +335,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 
 	reqURL := mp.URL(path, query)
 
-	log := NewReqLog(http.MethodGet, reqURL)
+	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, mp.logger)
 
 	body, err := json.Marshal(params)
@@ -345,6 +355,8 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
@@ -380,7 +392,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 
 	reqURL := mp.URL(path, query)
 
-	log := NewReqLog(http.MethodGet, reqURL)
+	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, mp.logger)
 
 	resp, err := mp.client.Upload(ctx, reqURL, form, options...)
@@ -390,6 +402,8 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	}
 
 	defer resp.Body.Close()
+
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
