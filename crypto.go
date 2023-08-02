@@ -173,13 +173,13 @@ func NewAesECB(key []byte, mode AESPaddingMode) *AesECB {
 }
 
 // AES-GCM 加密算法
-type GCMCrypto struct {
+type AesGCM struct {
 	key   []byte
 	nonce []byte
 }
 
 // Encrypt AES-GCM 加密
-func (c *GCMCrypto) Encrypt(plainText, additionalData []byte) ([]byte, error) {
+func (c *AesGCM) Encrypt(plainText, additionalData []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -200,7 +200,7 @@ func (c *GCMCrypto) Encrypt(plainText, additionalData []byte) ([]byte, error) {
 }
 
 // Decrypt AES-GCM 解密
-func (c *GCMCrypto) Decrypt(cipherText, additionalData []byte) ([]byte, error) {
+func (c *AesGCM) Decrypt(cipherText, additionalData []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
 
 	if err != nil {
@@ -221,8 +221,8 @@ func (c *GCMCrypto) Decrypt(cipherText, additionalData []byte) ([]byte, error) {
 }
 
 // NewGCMCrypto 生成 AES-GCM 加密模式
-func NewGCMCrypto(key, nonce []byte) *GCMCrypto {
-	return &GCMCrypto{
+func NewAesGCM(key, nonce []byte) *AesGCM {
+	return &AesGCM{
 		key:   key,
 		nonce: nonce,
 	}

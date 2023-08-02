@@ -16,6 +16,7 @@ import (
 type Pay struct {
 	host   string
 	mchid  string
+	appid  string
 	apikey string
 	client HTTPClient
 	tlscli HTTPClient
@@ -24,6 +25,11 @@ type Pay struct {
 
 // MchID 返回mchid
 func (p *Pay) MchID() string {
+	return p.mchid
+}
+
+// AppID 返回appid
+func (p *Pay) AppID() string {
 	return p.mchid
 }
 
@@ -87,8 +93,6 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	params.Set("mch_id", p.mchid)
-	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
@@ -149,8 +153,6 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	params.Set("mch_id", p.mchid)
-	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
@@ -211,8 +213,6 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	params.Set("mch_id", p.mchid)
-	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
@@ -266,8 +266,6 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	params.Set("mch_id", p.mchid)
-	params.Set("nonce_str", Nonce(16))
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
@@ -382,10 +380,10 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 }
 
 // APPAPI 用于APP拉起支付
-func (p *Pay) APPAPI(appid, prepayID string) V {
+func (p *Pay) APPAPI(prepayID string) V {
 	v := V{}
 
-	v.Set("appid", appid)
+	v.Set("appid", p.appid)
 	v.Set("partnerid", p.mchid)
 	v.Set("prepayid", prepayID)
 	v.Set("package", "Sign=WXPay")
@@ -398,10 +396,10 @@ func (p *Pay) APPAPI(appid, prepayID string) V {
 }
 
 // JSAPI 用于JS拉起支付
-func (p *Pay) JSAPI(appid, prepayID string) V {
+func (p *Pay) JSAPI(prepayID string) V {
 	v := V{}
 
-	v.Set("appId", appid)
+	v.Set("appId", p.appid)
 	v.Set("nonceStr", Nonce(16))
 	v.Set("package", "prepay_id="+prepayID)
 	v.Set("signType", "MD5")
@@ -413,26 +411,27 @@ func (p *Pay) JSAPI(appid, prepayID string) V {
 }
 
 // MinipRedpackJSAPI 小程序领取红包
-func (p *Pay) MinipRedpackJSAPI(appid, pkg string) V {
+func (p *Pay) MinipRedpackJSAPI(pkg string) V {
 	v := V{}
 
-	v.Set("appId", appid)
+	v.Set("appId", p.appid)
 	v.Set("nonceStr", Nonce(16))
 	v.Set("package", url.QueryEscape(pkg))
 	v.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
 	v.Set("signType", "MD5")
 
-	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", appid, v.Get("nonceStr"), v.Get("package"), v.Get("timeStamp"), p.apikey)
+	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", p.appid, v.Get("nonceStr"), v.Get("package"), v.Get("timeStamp"), p.apikey)
 
 	v.Set("paySign", MD5(signStr))
 
 	return v
 }
 
-func NewPay(mchid, apikey string) *Pay {
+func NewPay(mchid, appid, apikey string) *Pay {
 	return &Pay{
 		host:   "https://api.mch.weixin.qq.com",
 		mchid:  mchid,
+		appid:  appid,
 		apikey: apikey,
 	}
 }

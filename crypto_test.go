@@ -79,12 +79,12 @@ func TestAesECB(t *testing.T) {
 	assert.Equal(t, plainText, string(d7b))
 }
 
-func TestGCMCrypto(t *testing.T) {
+func TestAesGCM(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	nonce := key[:12]
 	plainText := "IloveYiigo"
 
-	gcm := NewGCMCrypto(key, nonce)
+	gcm := NewAesGCM(key, nonce)
 
 	eb, err := gcm.Encrypt([]byte(plainText), nil)
 	assert.Nil(t, err)

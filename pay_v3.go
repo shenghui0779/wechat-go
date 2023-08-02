@@ -22,6 +22,7 @@ import (
 type PayV3 struct {
 	host    string
 	mchid   string
+	appid   string
 	apikey  string
 	serial  string
 	prvkey  *PrivateKey
@@ -33,6 +34,11 @@ type PayV3 struct {
 
 // MchID 返回mchid
 func (p *PayV3) MchID() string {
+	return p.mchid
+}
+
+// AppID 返回appid
+func (p *PayV3) AppID() string {
 	return p.mchid
 }
 
@@ -304,14 +310,14 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	for _, v := range ret.Array() {
 		cert := v.Get("encrypt_certificate")
 
-		gcm := NewGCMCrypto([]byte(p.apikey), []byte(cert.Get("nonce").String()))
+		gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
 		block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
 
 		if err != nil {
 			return nil, err
 		}
 
-		key, err := NewPublicKeyFromPemBlock(RSA_PKCS8, block)
+		key, err := NewPublicKeyFromDerBlock(block)
 
 		if err != nil {
 			return nil, err
@@ -391,14 +397,14 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 		if v.Get("serial_no").String() == serial {
 			cert := v.Get("encrypt_certificate")
 
-			gcm := NewGCMCrypto([]byte(p.apikey), []byte(cert.Get("nonce").String()))
+			gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
 			block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
 
 			if err != nil {
 				return fail(err)
 			}
 
-			key, err := NewPublicKeyFromPemBlock(RSA_PKCS8, block)
+			key, err := NewPublicKeyFromDerBlock(block)
 
 			if err != nil {
 				return fail(err)
@@ -502,13 +508,13 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 }
 
 // APPAPI 用于APP拉起支付
-func (p *PayV3) APPAPI(appid, prepayID string) (V, error) {
+func (p *PayV3) APPAPI(prepayID string) (V, error) {
 	nonce := Nonce(32)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	v := V{}
 
-	v.Set("appid", appid)
+	v.Set("appid", p.appid)
 	v.Set("partnerid", p.mchid)
 	v.Set("prepayid", prepayID)
 	v.Set("package", "Sign=WXPay")
@@ -517,7 +523,7 @@ func (p *PayV3) APPAPI(appid, prepayID string) (V, error) {
 
 	var builder strings.Builder
 
-	builder.WriteString(appid)
+	builder.WriteString(p.appid)
 	builder.WriteString("\n")
 	builder.WriteString(timestamp)
 	builder.WriteString("\n")
@@ -538,13 +544,13 @@ func (p *PayV3) APPAPI(appid, prepayID string) (V, error) {
 }
 
 // JSAPI 用于JS拉起支付
-func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
+func (p *PayV3) JSAPI(prepayID string) (V, error) {
 	nonce := Nonce(32)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	v := V{}
 
-	v.Set("appId", appid)
+	v.Set("appId", p.appid)
 	v.Set("nonceStr", nonce)
 	v.Set("package", "prepay_id="+prepayID)
 	v.Set("signType", "RSA")
@@ -552,7 +558,7 @@ func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
 
 	var builder strings.Builder
 
-	builder.WriteString(appid)
+	builder.WriteString(p.appid)
 	builder.WriteString("\n")
 	builder.WriteString(timestamp)
 	builder.WriteString("\n")
@@ -572,10 +578,11 @@ func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
 	return v, nil
 }
 
-func NewPayV3(mchid, apikey, serialNO string) *PayV3 {
+func NewPayV3(mchid, appid, apikey, serialNO string) *PayV3 {
 	return &PayV3{
 		host:   "https://api.mch.weixin.qq.com",
 		mchid:  mchid,
+		appid:  appid,
 		apikey: apikey,
 		serial: serialNO,
 		client: NewDefaultClient(),

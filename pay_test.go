@@ -7,7 +7,7 @@ import (
 )
 
 func TestSign(t *testing.T) {
-	pay := NewPay("10000100", "192006250b4c09247ec02edce69f6a2d")
+	pay := NewPay("10000100", "wx2421b1c4370ec43b", "192006250b4c09247ec02edce69f6a2d")
 
 	params := V{}
 
