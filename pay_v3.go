@@ -20,16 +20,16 @@ import (
 
 // PayV3 微信支付V3
 type PayV3 struct {
-	host    string
-	mchid   string
-	appid   string
-	apikey  string
-	serial  string
-	prvkey  *PrivateKey
-	pubkeyM map[string]*WXPubKey
-	client  HTTPClient
-	mutex   sync.Mutex
-	logger  func(ctx context.Context, data map[string]string)
+	host     string
+	mchid    string
+	appid    string
+	apikey   string
+	serialNO string
+	prvKey   *PrivateKey
+	pubKeyM  map[string]*WXPubKey
+	client   HTTPClient
+	mutex    sync.Mutex
+	logger   func(ctx context.Context, data map[string]string)
 }
 
 // MchID 返回mchid
@@ -54,14 +54,14 @@ func (p *PayV3) SetHTTPClient(c *http.Client) {
 
 // SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
 func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
-	p.prvkey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
+	p.prvKey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
 
 	return
 }
 
 // SetPrivateKeyFromPemFile  通过PEM文件设置RSA私钥
 func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
-	p.prvkey, err = NewPrivateKeyFromPemFile(mode, pemFile)
+	p.prvKey, err = NewPrivateKeyFromPemFile(mode, pemFile)
 
 	return
 }
@@ -69,7 +69,7 @@ func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (e
 // SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
 // 注意：证书需采用「TripleDES-SHA1」加密方式
 func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
-	p.prvkey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
+	p.prvKey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
 
 	return
 }
@@ -283,7 +283,7 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 }
 
 func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, error) {
-	wxkey, ok := p.pubkeyM[serialNO]
+	wxkey, ok := p.pubKeyM[serialNO]
 
 	if ok {
 		return wxkey.Key, nil
@@ -293,7 +293,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	defer p.mutex.Unlock()
 
 	// 再次获取确认
-	wxkey, ok = p.pubkeyM[serialNO]
+	wxkey, ok = p.pubKeyM[serialNO]
 
 	if ok {
 		return wxkey.Key, nil
@@ -325,7 +325,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 
 		certNO := cert.Get("serial_no").String()
 
-		p.pubkeyM[certNO] = &WXPubKey{
+		p.pubKeyM[certNO] = &WXPubKey{
 			Key:        key,
 			EffectedAt: v.Get("effective_time").Time(),
 			ExpiredAt:  v.Get("expire_time").Time(),
@@ -437,7 +437,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 // Authorization 生成签名并返回 HTTP Authorization
 func (p *PayV3) Authorization(method, path string, query url.Values, body []byte) (string, error) {
-	if p.prvkey == nil {
+	if p.prvKey == nil {
 		return "", errors.New("private key not found (forgotten configure?)")
 	}
 
@@ -467,13 +467,13 @@ func (p *PayV3) Authorization(method, path string, query url.Values, body []byte
 
 	builder.WriteString("\n")
 
-	sign, err := p.prvkey.Sign(crypto.SHA256, []byte(builder.String()))
+	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
 
 	if err != nil {
 		return "", err
 	}
 
-	auth := fmt.Sprintf(`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%s",serial_no="%s"`, p.mchid, nonce, base64.StdEncoding.EncodeToString(sign), timestamp, p.serial)
+	auth := fmt.Sprintf(`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%s",serial_no="%s"`, p.mchid, nonce, base64.StdEncoding.EncodeToString(sign), timestamp, p.serialNO)
 
 	return auth, nil
 }
@@ -532,7 +532,7 @@ func (p *PayV3) APPAPI(prepayID string) (V, error) {
 	builder.WriteString(prepayID)
 	builder.WriteString("\n")
 
-	sign, err := p.prvkey.Sign(crypto.SHA256, []byte(builder.String()))
+	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
 
 	if err != nil {
 		return nil, err
@@ -567,7 +567,7 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 	builder.WriteString("prepay_id=" + prepayID)
 	builder.WriteString("\n")
 
-	sign, err := p.prvkey.Sign(crypto.SHA256, []byte(builder.String()))
+	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
 
 	if err != nil {
 		return nil, err
@@ -580,11 +580,11 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 
 func NewPayV3(mchid, appid, apikey, serialNO string) *PayV3 {
 	return &PayV3{
-		host:   "https://api.mch.weixin.qq.com",
-		mchid:  mchid,
-		appid:  appid,
-		apikey: apikey,
-		serial: serialNO,
-		client: NewDefaultClient(),
+		host:     "https://api.mch.weixin.qq.com",
+		mchid:    mchid,
+		appid:    appid,
+		apikey:   apikey,
+		serialNO: serialNO,
+		client:   NewDefaultClient(),
 	}
 }
