@@ -114,7 +114,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr))
+	options = append(options, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
@@ -176,7 +176,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader("Content-Type", "application/json;charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
@@ -377,7 +377,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	log.Set(HeaderAuth, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr))
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
 
 	if err != nil {
 		return fail(err)

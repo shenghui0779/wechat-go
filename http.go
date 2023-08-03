@@ -205,7 +205,7 @@ func (c *httpclient) Upload(ctx context.Context, reqURL string, form UploadForm,
 		return nil, err
 	}
 
-	options = append(options, WithHTTPHeader("Content-Type", w.FormDataContentType()))
+	options = append(options, WithHTTPHeader(HeaderContentType, w.FormDataContentType()))
 
 	// Don't forget to close the multipart writer.
 	// If you don't close it, your request will be missing the terminating boundary.
@@ -263,7 +263,7 @@ func HTTPPost(ctx context.Context, reqURL string, body []byte, options ...HTTPOp
 
 // HTTPPostForm 发送POST表单请求
 func HTTPPostForm(ctx context.Context, reqURL string, data url.Values, options ...HTTPOption) (*http.Response, error) {
-	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"))
 
 	return defaultHTTPClient.Do(ctx, http.MethodPost, reqURL, []byte(data.Encode()), options...)
 }

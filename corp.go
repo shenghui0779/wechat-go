@@ -208,7 +208,7 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X, options ...H
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
@@ -315,7 +315,7 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X, options ..
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 

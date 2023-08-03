@@ -239,7 +239,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
@@ -346,7 +346,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 

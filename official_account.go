@@ -311,7 +311,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
@@ -418,7 +418,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 
 	log.SetBody(string(body))
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/json; charset=utf-8"))
+	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
