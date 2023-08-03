@@ -170,7 +170,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.Set("Authorization", authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json"))
+	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json;charset=utf-8"))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
 
@@ -218,7 +218,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	log.Set("Authorization", authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
+	options = append(options, WithHTTPHeader("Authorization", authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
 
