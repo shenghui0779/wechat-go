@@ -483,7 +483,7 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 	nonce := header.Get("Wechatpay-Nonce")
 	timestamp := header.Get("Wechatpay-Timestamp")
 	serial := header.Get("Wechatpay-Serial")
-	wxsign := header.Get("Wechatpay-Signature")
+	sign := header.Get("Wechatpay-Signature")
 
 	key, err := p.publicKey(ctx, serial)
 
@@ -504,7 +504,7 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 
 	builder.WriteString("\n")
 
-	return key.Verify(crypto.SHA256, []byte(builder.String()), []byte(wxsign))
+	return key.Verify(crypto.SHA256, []byte(builder.String()), []byte(sign))
 }
 
 // APPAPI 用于APP拉起支付
