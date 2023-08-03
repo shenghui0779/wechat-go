@@ -126,6 +126,11 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	log.SetStatusCode(resp.StatusCode)
 
+	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
+	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
+	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
+	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -182,6 +187,11 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.SetStatusCode(resp.StatusCode)
 
+	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
+	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
+	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
+	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
+
 	b, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -229,6 +239,11 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	defer resp.Body.Close()
 
 	log.SetStatusCode(resp.StatusCode)
+
+	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
+	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
+	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
+	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
 
 	b, err := io.ReadAll(resp.Body)
 
