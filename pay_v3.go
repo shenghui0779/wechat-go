@@ -172,7 +172,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json;charset=utf-8"))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
 	if err != nil {
 		return nil, err
