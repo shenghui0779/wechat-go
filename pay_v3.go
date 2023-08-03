@@ -168,7 +168,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.SetBody(string(body))
 
-	authStr, err := p.Authorization(http.MethodGet, path, nil, body)
+	authStr, err := p.Authorization(http.MethodPost, path, nil, body)
 
 	if err != nil {
 		return nil, err
