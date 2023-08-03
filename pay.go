@@ -87,7 +87,7 @@ func (p *Pay) URL(path string, query url.Values) string {
 }
 
 // PostXML POST请求XML数据 (无证书请求)
-func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -101,9 +101,9 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
 
 	if err != nil {
 		return nil, err
@@ -111,6 +111,7 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -123,7 +124,7 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -147,7 +148,7 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V, options ...HTT
 }
 
 // PostTLSXML POST请求XML数据 (带证书请求)
-func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...HTTPOption) (V, error) {
+func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -161,9 +162,9 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
+	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 
 	if err != nil {
 		return nil, err
@@ -171,6 +172,7 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -183,7 +185,7 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -207,7 +209,7 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V, options ...
 }
 
 // PostBuffer POST请求获取buffer (无证书请求，如：下载交易订单)
-func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -221,9 +223,9 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
 
 	if err != nil {
 		return nil, err
@@ -231,6 +233,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -243,7 +246,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 
@@ -260,7 +263,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V, options ...
 }
 
 // PostBuffer POST请求获取buffer (带证书请求，如：下载资金账单)
-func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options ...HTTPOption) ([]byte, error) {
+func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -274,9 +277,9 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body), options...)
+	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 
 	if err != nil {
 		return nil, err
@@ -284,6 +287,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -296,7 +300,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V, options 
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 

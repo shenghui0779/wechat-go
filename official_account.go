@@ -105,7 +105,7 @@ func (oa *OfficialAccount) SubscribeMsgAuthURL(scene, templateID, redirectURL, r
 }
 
 // Code2OAuthToken 获取网页授权Token
-func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string) (gjson.Result, error) {
 	query := url.Values{}
 
 	query.Set("appid", oa.appid)
@@ -118,7 +118,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -126,6 +126,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -138,7 +139,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -150,7 +151,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string, opt
 }
 
 // RefreshOAuthToken 刷新网页授权Token
-func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken string, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken string) (gjson.Result, error) {
 	query := url.Values{}
 
 	query.Set("appid", oa.appid)
@@ -162,7 +163,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -170,6 +171,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -182,7 +184,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -194,7 +196,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 }
 
 // AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
-func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query := url.Values{}
 
 	query.Set("appid", oa.appid)
@@ -206,7 +208,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -214,6 +216,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -226,7 +229,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -238,7 +241,7 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context, options ...HTTPOptio
 }
 
 // GetJSON GET请求JSON数据
-func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
 	token, err := oa.access(ctx, oa)
 
 	if err != nil {
@@ -256,7 +259,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -264,6 +267,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -276,7 +280,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -288,7 +292,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 }
 
 // PostJSON POST请求JSON数据
-func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
 	token, err := oa.access(ctx, oa)
 
 	if err != nil {
@@ -309,11 +313,9 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 		return fail(err)
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
-	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	if err != nil {
 		return fail(err)
@@ -321,6 +323,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -333,7 +336,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -345,7 +348,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X, 
 }
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
-func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
+func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
 	token, err := oa.access(ctx, oa)
 
 	if err != nil {
@@ -363,7 +366,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return nil, err
@@ -371,6 +374,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -383,7 +387,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 		return nil, err
 	}
 
-	log.SetBody(string(b))
+	log.SetReqBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -395,7 +399,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
+func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
 	token, err := oa.access(ctx, oa)
 
 	if err != nil {
@@ -416,11 +420,9 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
-	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	if err != nil {
 		return nil, err
@@ -428,6 +430,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -440,7 +443,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -452,7 +455,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 }
 
 // Upload 上传媒体资源
-func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
+func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
 	token, err := oa.access(ctx, oa)
 
 	if err != nil {
@@ -467,7 +470,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Upload(ctx, reqURL, form, options...)
+	resp, err := oa.client.Upload(ctx, reqURL, form)
 
 	if err != nil {
 		return fail(err)
@@ -475,6 +478,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -487,7 +491,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadF
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 

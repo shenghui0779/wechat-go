@@ -100,7 +100,7 @@ func (p *PayV3) URL(path string, query url.Values) string {
 }
 
 // GetJSON GET请求JSON数据
-func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (*APIResult, error) {
+func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*APIResult, error) {
 	reqURL := p.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -114,9 +114,10 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
-
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil,
+		WithHTTPHeader(HeaderAccept, "application/json"),
+		WithHTTPHeader(HeaderAuth, authStr),
+	)
 
 	if err != nil {
 		return nil, err
@@ -124,13 +125,8 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -138,7 +134,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -154,7 +150,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 }
 
 // PostJSON POST请求JSON数据
-func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (*APIResult, error) {
+func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -166,7 +162,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
 	authStr, err := p.Authorization(http.MethodPost, path, nil, string(body))
 
@@ -176,9 +172,11 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body,
+		WithHTTPHeader(HeaderAccept, "application/json"),
+		WithHTTPHeader(HeaderAuth, authStr),
+		WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"),
+	)
 
 	if err != nil {
 		return nil, err
@@ -186,13 +184,8 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -200,7 +193,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -216,7 +209,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 }
 
 // Upload 上传资源
-func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (*APIResult, error) {
+func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIResult, error) {
 	reqURL := p.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -230,9 +223,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader(HeaderAuth, authStr))
-
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuth, authStr))
 
 	if err != nil {
 		return nil, err
@@ -240,13 +231,8 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -254,7 +240,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = p.Verify(ctx, resp.Header, b); err != nil {
@@ -270,7 +256,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 }
 
 // Download 下载资源 (需先获取download_url)
-func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, options ...HTTPOption) error {
+func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) error {
 	log := NewReqLog(http.MethodGet, downloadURL)
 	defer log.Do(ctx, p.logger)
 
@@ -283,9 +269,7 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 
 	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader(HeaderAuth, authStr))
-
-	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, options...)
+	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuth, authStr))
 
 	if err != nil {
 		return err
@@ -293,6 +277,7 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
@@ -385,6 +370,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
@@ -393,7 +379,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	if resp.StatusCode >= 300 {
 		return fail(errors.New(string(b)))
@@ -401,18 +387,8 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	ret := gjson.ParseBytes(b).Get("data")
 
-	nonce := resp.Header.Get(HeaderNonce)
-	timestamp := resp.Header.Get(HeaderTimestamp)
-	serial := resp.Header.Get(HeaderSerial)
-	wxsign := resp.Header.Get(HeaderSign)
-
-	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
-	log.Set(HeaderNonce, nonce)
-	log.Set(HeaderTimestamp, timestamp)
-	log.Set(HeaderSerial, serial)
-	log.Set(HeaderSign, wxsign)
-
 	valid := false
+	serial := resp.Header.Get(HeaderSerial)
 
 	for _, v := range ret.Array() {
 		if v.Get("serial_no").String() == serial {
@@ -434,14 +410,14 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 			// 签名验证
 			var builder strings.Builder
 
-			builder.WriteString(timestamp)
+			builder.WriteString(resp.Header.Get(HeaderTimestamp))
 			builder.WriteString("\n")
-			builder.WriteString(nonce)
+			builder.WriteString(resp.Header.Get(HeaderNonce))
 			builder.WriteString("\n")
 			builder.Write(b)
 			builder.WriteString("\n")
 
-			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(wxsign)); err != nil {
+			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(resp.Header.Get(HeaderSign))); err != nil {
 				return fail(err)
 			}
 

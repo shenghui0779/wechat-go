@@ -77,7 +77,7 @@ func (mp *MiniProgram) URL(path string, query url.Values) string {
 }
 
 // Code2Session 通过临时登录凭证code完成登录流程
-func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ...HTTPOption) (gjson.Result, error) {
+func (mp *MiniProgram) Code2Session(ctx context.Context, code string) (gjson.Result, error) {
 	query := url.Values{}
 
 	query.Set("appid", mp.appid)
@@ -90,7 +90,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -98,6 +98,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -110,7 +111,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -122,7 +123,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string, options ..
 }
 
 // AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
-func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (gjson.Result, error) {
+func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query := url.Values{}
 
 	query.Set("appid", mp.appid)
@@ -134,7 +135,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -142,6 +143,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -154,7 +156,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -166,7 +168,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context, options ...HTTPOption) (
 }
 
 // GetJSON GET请求JSON数据
-func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (gjson.Result, error) {
+func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
 	token, err := mp.access(ctx, mp)
 
 	if err != nil {
@@ -184,7 +186,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return fail(err)
@@ -192,6 +194,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -204,7 +207,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -216,7 +219,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 }
 
 // PostJSON POST请求JSON数据
-func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (gjson.Result, error) {
+func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
 	token, err := mp.access(ctx, mp)
 
 	if err != nil {
@@ -237,11 +240,9 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 		return fail(err)
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	if err != nil {
 		return fail(err)
@@ -249,6 +250,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -261,7 +263,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -273,7 +275,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X, opti
 }
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
-func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Values, options ...HTTPOption) ([]byte, error) {
+func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
 	token, err := mp.access(ctx, mp)
 
 	if err != nil {
@@ -291,7 +293,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
 
 	if err != nil {
 		return nil, err
@@ -299,6 +301,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -311,7 +314,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -323,7 +326,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, options ...HTTPOption) ([]byte, error) {
+func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
 	token, err := mp.access(ctx, mp)
 
 	if err != nil {
@@ -344,11 +347,9 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	options = append(options, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 
 	if err != nil {
 		return nil, err
@@ -356,6 +357,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -368,7 +370,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
@@ -380,7 +382,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X, op
 }
 
 // Upload 上传媒体资源
-func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (gjson.Result, error) {
+func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
 	token, err := mp.access(ctx, mp)
 
 	if err != nil {
@@ -395,7 +397,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Upload(ctx, reqURL, form, options...)
+	resp, err := mp.client.Upload(ctx, reqURL, form)
 
 	if err != nil {
 		return fail(err)
@@ -403,6 +405,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
@@ -415,7 +418,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm,
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 
