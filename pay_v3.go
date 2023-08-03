@@ -126,6 +126,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	log.SetStatusCode(resp.StatusCode)
 
+	log.Set("Request-ID", resp.Header.Get("Request-ID"))
 	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
 	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
 	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
@@ -187,6 +188,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.SetStatusCode(resp.StatusCode)
 
+	log.Set("Request-ID", resp.Header.Get("Request-ID"))
 	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
 	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
 	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
@@ -240,6 +242,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	log.SetStatusCode(resp.StatusCode)
 
+	log.Set("Request-ID", resp.Header.Get("Request-ID"))
 	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
 	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
 	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
@@ -291,6 +294,8 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 	defer resp.Body.Close()
 
 	log.SetStatusCode(resp.StatusCode)
+
+	log.Set("Request-ID", resp.Header.Get("Request-ID"))
 
 	_, err = io.Copy(w, resp.Body)
 
@@ -401,6 +406,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 	serial := resp.Header.Get("Wechatpay-Serial")
 	wxsign := resp.Header.Get("Wechatpay-Signature")
 
+	log.Set("Request-ID", resp.Header.Get("Request-ID"))
 	log.Set("Wechatpay-Nonce", nonce)
 	log.Set("Wechatpay-Timestamp", timestamp)
 	log.Set("Wechatpay-Serial", serial)
