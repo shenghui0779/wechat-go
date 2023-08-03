@@ -20,7 +20,6 @@ type MiniProgram struct {
 	token  string
 	aeskey string
 	client HTTPClient
-	access func(ctx context.Context, cli *MiniProgram) (string, error)
 	logger func(ctx context.Context, data map[string]string)
 }
 
@@ -44,11 +43,6 @@ func (mp *MiniProgram) SetServerConfig(token, aeskey string) {
 // SetHTTPClient 设置请求的 HTTP Client
 func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
 	mp.client = NewHTTPClient(c)
-}
-
-// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
-func (mp *MiniProgram) WithAccessToken(f func(ctx context.Context, cli *MiniProgram) (string, error)) {
-	mp.access = f
 }
 
 // WithLogger 设置日志记录
@@ -85,41 +79,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string) (gjson.Res
 	query.Set("js_code", code)
 	query.Set("grant_type", "authorization_code")
 
-	reqURL := mp.URL("/sns/jscode2session", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, mp.logger)
-
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return mp.GetJSON(ctx, "/sns/jscode2session", query)
 }
 
 // AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
@@ -130,57 +90,11 @@ func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query.Set("secret", mp.secret)
 	query.Set("grant_type", "client_credential")
 
-	reqURL := mp.URL("/cgi-bin/token", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, mp.logger)
-
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return mp.GetJSON(ctx, "/cgi-bin/token", query)
 }
 
 // GetJSON GET请求JSON数据
 func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	token, err := mp.access(ctx, mp)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := mp.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -219,16 +133,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 }
 
 // PostJSON POST请求JSON数据
-func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
-	token, err := mp.access(ctx, mp)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
 	reqURL := mp.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -276,18 +181,6 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, params X) (gjs
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	token, err := mp.access(ctx, mp)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := mp.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -326,16 +219,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
-	token, err := mp.access(ctx, mp)
-
-	if err != nil {
-		return nil, err
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
 	reqURL := mp.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -382,16 +266,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, params X) ([
 }
 
 // Upload 上传媒体资源
-func (mp *MiniProgram) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
-	token, err := mp.access(ctx, mp)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := mp.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)

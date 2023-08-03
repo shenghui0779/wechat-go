@@ -20,7 +20,6 @@ type OfficialAccount struct {
 	token  string
 	aeskey string
 	client HTTPClient
-	access func(ctx context.Context, cli *OfficialAccount) (string, error)
 	logger func(ctx context.Context, data map[string]string)
 }
 
@@ -44,11 +43,6 @@ func (oa *OfficialAccount) SetServerConfig(token, aeskey string) {
 // SetHTTPClient 设置请求的 HTTP Client
 func (oa *OfficialAccount) SetHTTPClient(c *http.Client) {
 	oa.client = NewHTTPClient(c)
-}
-
-// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
-func (oa *OfficialAccount) WithAccessToken(f func(ctx context.Context, cli *OfficialAccount) (string, error)) {
-	oa.access = f
 }
 
 // WithLogger 设置日志记录
@@ -113,41 +107,7 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string) (gj
 	query.Set("code", code)
 	query.Set("grant_type", "authorization_code")
 
-	reqURL := oa.URL("/sns/oauth2/access_token", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return oa.GetJSON(ctx, "/sns/oauth2/access_token", query)
 }
 
 // RefreshOAuthToken 刷新网页授权Token
@@ -158,41 +118,7 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	query.Set("grant_type", "refresh_token")
 	query.Set("refresh_token", refreshToken)
 
-	reqURL := oa.URL("/sns/oauth2/refresh_token", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return oa.GetJSON(ctx, "/sns/oauth2/refresh_token", query)
 }
 
 // AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
@@ -203,57 +129,11 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error
 	query.Set("secret", oa.secret)
 	query.Set("grant_type", "client_credential")
 
-	reqURL := oa.URL("/cgi-bin/token", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return oa.GetJSON(ctx, "/cgi-bin/token", query)
 }
 
 // GetJSON GET请求JSON数据
 func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	token, err := oa.access(ctx, oa)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := oa.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -292,16 +172,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 }
 
 // PostJSON POST请求JSON数据
-func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
-	token, err := oa.access(ctx, oa)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
 	reqURL := oa.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -349,18 +220,6 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, params X) 
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	token, err := oa.access(ctx, oa)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := oa.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -399,16 +258,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
-	token, err := oa.access(ctx, oa)
-
-	if err != nil {
-		return nil, err
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
 	reqURL := oa.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -455,16 +305,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, params X
 }
 
 // Upload 上传媒体资源
-func (oa *OfficialAccount) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
-	token, err := oa.access(ctx, oa)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := oa.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)

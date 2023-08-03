@@ -20,7 +20,6 @@ type Corp struct {
 	token  string
 	aeskey string
 	client HTTPClient
-	access func(ctx context.Context, cli *Corp) (string, error)
 	logger func(ctx context.Context, data map[string]string)
 }
 
@@ -44,11 +43,6 @@ func (c *Corp) SetServerConfig(token, aeskey string) {
 // SetHTTPClient 设置请求的 HTTP Client
 func (c *Corp) SetHTTPClient(cli *http.Client) {
 	c.client = NewHTTPClient(cli)
-}
-
-// WithAccessToken 配置AccessToken获取方法 (开发者自行实现存/取)
-func (c *Corp) WithAccessToken(f func(ctx context.Context, cli *Corp) (string, error)) {
-	c.access = f
 }
 
 // WithLogger 设置日志记录
@@ -98,57 +92,11 @@ func (c *Corp) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query.Set("corpid", c.corpid)
 	query.Set("corpsecret", c.secret)
 
-	reqURL := c.URL("/cgi-bin/gettoken", query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	resp, err := c.client.Do(ctx, http.MethodGet, reqURL, nil)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	ret := gjson.ParseBytes(b)
-
-	if code := ret.Get("errcode").Int(); code != 0 {
-		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
-	}
-
-	return ret, nil
+	return c.GetJSON(ctx, "/cgi-bin/gettoken", query)
 }
 
 // GetJSON GET请求JSON数据
 func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	token, err := c.access(ctx, c)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -187,16 +135,7 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 }
 
 // PostJSON POST请求JSON数据
-func (c *Corp) PostJSON(ctx context.Context, path string, params X) (gjson.Result, error) {
-	token, err := c.access(ctx, c)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -244,18 +183,6 @@ func (c *Corp) PostJSON(ctx context.Context, path string, params X) (gjson.Resul
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	token, err := c.access(ctx, c)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if query == nil {
-		query = url.Values{}
-	}
-
-	query.Set("access_token", token)
-
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
@@ -294,16 +221,7 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (c *Corp) PostBuffer(ctx context.Context, path string, params X) ([]byte, error) {
-	token, err := c.access(ctx, c)
-
-	if err != nil {
-		return nil, err
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -350,16 +268,7 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, params X) ([]byte, e
 }
 
 // Upload 上传媒体资源
-func (c *Corp) Upload(ctx context.Context, path string, form UploadForm) (gjson.Result, error) {
-	token, err := c.access(ctx, c)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	query := url.Values{}
-	query.Set("access_token", token)
-
+func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
