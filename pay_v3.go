@@ -280,8 +280,6 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
-	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
-
 	_, err = io.Copy(w, resp.Body)
 
 	return err
@@ -351,7 +349,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 	reqURL := p.URL("/v3/certificates", nil)
 
-	log := NewReqLog(http.MethodPost, reqURL)
+	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, p.logger)
 
 	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, "")

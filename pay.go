@@ -140,10 +140,6 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 		return nil, err
 	}
 
-	if v := ret.Get("mch_id"); v != p.mchid {
-		return nil, fmt.Errorf("mchid mismatch, expect: %s, actual: %s", p.mchid, v)
-	}
-
 	return ret, nil
 }
 
@@ -201,10 +197,6 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 		return nil, err
 	}
 
-	if v := ret.Get("mch_id"); v != p.mchid {
-		return nil, fmt.Errorf("mchid mismatch, expect: %s, actual: %s", p.mchid, v)
-	}
-
 	return ret, nil
 }
 
@@ -237,7 +229,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -256,7 +248,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 
 	// 能解析出XML，说明发生错误
 	if len(ret) != 0 {
-		return nil, fmt.Errorf("%s | %s | %s", ret.Get("return_code"), ret.Get("return_msg"), ret.Get("error_code"))
+		return nil, fmt.Errorf("%s | %s (error_code = %s, err_code_des = %s)", ret.Get("return_code"), ret.Get("return_msg"), ret.Get("error_code"), ret.Get("err_code_des"))
 	}
 
 	return b, nil
@@ -317,10 +309,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 }
 
 func (p *Pay) Sign(v V) string {
-	str := v.Encode("=", "&",
-		WithIgnoreKeys("sign"),
-		WithEmptyEncMode(EmptyEncIgnore),
-	) + "&key=" + p.apikey
+	str := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
 
 	signType := v.Get("sign_type")
 
@@ -336,10 +325,7 @@ func (p *Pay) Sign(v V) string {
 }
 
 func (p *Pay) Verify(v V) error {
-	str := v.Encode("=", "&",
-		WithIgnoreKeys("sign"),
-		WithEmptyEncMode(EmptyEncIgnore),
-	) + "&key=" + p.apikey
+	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
 
 	wxsign := v.Get("sign")
 
@@ -350,15 +336,15 @@ func (p *Pay) Verify(v V) error {
 	}
 
 	if len(signType) != 0 && SignAlgo(strings.ToUpper(signType)) == SignHMacSHA256 {
-		if sign := strings.ToUpper(HMacSHA256(p.apikey, str)); sign != wxsign {
-			return fmt.Errorf("sign verify failed, expect: %s, actual: %s", sign, wxsign)
+		if sign := strings.ToUpper(HMacSHA256(p.apikey, signStr)); sign != wxsign {
+			return fmt.Errorf("sign verify failed, expect = %s, actual = %s", sign, wxsign)
 		}
 
 		return nil
 	}
 
-	if sign := strings.ToUpper(MD5(str)); sign != wxsign {
-		return fmt.Errorf("sign verify failed, expect: %s, actual: %s", sign, wxsign)
+	if sign := strings.ToUpper(MD5(signStr)); sign != wxsign {
+		return fmt.Errorf("sign verify failed, expect = %s, actual = %s", sign, wxsign)
 	}
 
 	return nil
