@@ -1,5 +1,14 @@
 package wechat
 
+const (
+	HeaderAuth      = "Authorization"
+	HeaderRequestID = "Request-ID"
+	HeaderNonce     = "Wechatpay-Nonce"
+	HeaderTimestamp = "Wechatpay-Timestamp"
+	HeaderSerial    = "Wechatpay-Serial"
+	HeaderSign      = "Wechatpay-Signature"
+)
+
 // SignAlgo 签名算法
 type SignAlgo string
 

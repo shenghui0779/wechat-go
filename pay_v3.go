@@ -106,15 +106,15 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	authStr, err := p.Authorization(http.MethodGet, path, query, nil)
+	authStr, err := p.Authorization(http.MethodGet, path, query, "")
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set("Authorization", authStr)
+	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
+	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, options...)
 
@@ -126,11 +126,11 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values, opti
 
 	log.SetStatusCode(resp.StatusCode)
 
-	log.Set("Request-ID", resp.Header.Get("Request-ID"))
-	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
-	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
-	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
-	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
+	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
+	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
+	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
+	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
+	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -168,15 +168,15 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.SetBody(string(body))
 
-	authStr, err := p.Authorization(http.MethodPost, path, nil, body)
+	authStr, err := p.Authorization(http.MethodPost, path, nil, string(body))
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set("Authorization", authStr)
+	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr), WithHTTPHeader("Content-Type", "application/json;charset=utf-8"))
+	options = append(options, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader("Content-Type", "application/json;charset=utf-8"))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body, options...)
 
@@ -188,11 +188,11 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X, options ...
 
 	log.SetStatusCode(resp.StatusCode)
 
-	log.Set("Request-ID", resp.Header.Get("Request-ID"))
-	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
-	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
-	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
-	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
+	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
+	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
+	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
+	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
+	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -222,15 +222,15 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	authStr, err := p.Authorization(http.MethodPost, path, nil, []byte(form.Field("meta")))
+	authStr, err := p.Authorization(http.MethodPost, path, nil, form.Field("meta"))
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set("Authorization", authStr)
+	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Authorization", authStr))
+	options = append(options, WithHTTPHeader(HeaderAuth, authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, options...)
 
@@ -242,11 +242,11 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm, option
 
 	log.SetStatusCode(resp.StatusCode)
 
-	log.Set("Request-ID", resp.Header.Get("Request-ID"))
-	log.Set("Wechatpay-Nonce", resp.Header.Get("Wechatpay-Nonce"))
-	log.Set("Wechatpay-Timestamp", resp.Header.Get("Wechatpay-Timestamp"))
-	log.Set("Wechatpay-Serial", resp.Header.Get("Wechatpay-Serial"))
-	log.Set("Wechatpay-Signature", resp.Header.Get("Wechatpay-Signature"))
+	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
+	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
+	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
+	log.Set(HeaderSerial, resp.Header.Get(HeaderSerial))
+	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -275,15 +275,15 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 	defer log.Do(ctx, p.logger)
 
 	// 获取 download_url
-	authStr, err := p.Authorization(http.MethodGet, downloadURL, nil, nil)
+	authStr, err := p.Authorization(http.MethodGet, downloadURL, nil, "")
 
 	if err != nil {
 		return err
 	}
 
-	log.Set("Authorization", authStr)
+	log.Set(HeaderAuth, authStr)
 
-	options = append(options, WithHTTPHeader("Authorization", authStr))
+	options = append(options, WithHTTPHeader(HeaderAuth, authStr))
 
 	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, options...)
 
@@ -295,7 +295,7 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer, o
 
 	log.SetStatusCode(resp.StatusCode)
 
-	log.Set("Request-ID", resp.Header.Get("Request-ID"))
+	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
 
 	_, err = io.Copy(w, resp.Body)
 
@@ -369,15 +369,15 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, nil)
+	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, "")
 
 	if err != nil {
 		return fail(err)
 	}
 
-	log.Set("Authorization", authStr)
+	log.Set(HeaderAuth, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader("Authorization", authStr))
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader("Accept", "application/json"), WithHTTPHeader(HeaderAuth, authStr))
 
 	if err != nil {
 		return fail(err)
@@ -401,16 +401,16 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	ret := gjson.ParseBytes(b).Get("data")
 
-	nonce := resp.Header.Get("Wechatpay-Nonce")
-	timestamp := resp.Header.Get("Wechatpay-Timestamp")
-	serial := resp.Header.Get("Wechatpay-Serial")
-	wxsign := resp.Header.Get("Wechatpay-Signature")
+	nonce := resp.Header.Get(HeaderNonce)
+	timestamp := resp.Header.Get(HeaderTimestamp)
+	serial := resp.Header.Get(HeaderSerial)
+	wxsign := resp.Header.Get(HeaderSign)
 
-	log.Set("Request-ID", resp.Header.Get("Request-ID"))
-	log.Set("Wechatpay-Nonce", nonce)
-	log.Set("Wechatpay-Timestamp", timestamp)
-	log.Set("Wechatpay-Serial", serial)
-	log.Set("Wechatpay-Signature", wxsign)
+	log.Set(HeaderRequestID, resp.Header.Get(HeaderRequestID))
+	log.Set(HeaderNonce, nonce)
+	log.Set(HeaderTimestamp, timestamp)
+	log.Set(HeaderSerial, serial)
+	log.Set(HeaderSign, wxsign)
 
 	valid := false
 
@@ -457,7 +457,7 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 }
 
 // Authorization 生成签名并返回 HTTP Authorization
-func (p *PayV3) Authorization(method, path string, query url.Values, body []byte) (string, error) {
+func (p *PayV3) Authorization(method, path string, query url.Values, body string) (string, error) {
 	if p.prvKey == nil {
 		return "", errors.New("private key not found (forgotten configure?)")
 	}
@@ -483,7 +483,7 @@ func (p *PayV3) Authorization(method, path string, query url.Values, body []byte
 	builder.WriteString("\n")
 
 	if len(body) != 0 {
-		builder.Write(body)
+		builder.WriteString(body)
 	}
 
 	builder.WriteString("\n")
@@ -501,10 +501,10 @@ func (p *PayV3) Authorization(method, path string, query url.Values, body []byte
 
 // Verify 验证微信签名
 func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) error {
-	nonce := header.Get("Wechatpay-Nonce")
-	timestamp := header.Get("Wechatpay-Timestamp")
-	serial := header.Get("Wechatpay-Serial")
-	sign := header.Get("Wechatpay-Signature")
+	nonce := header.Get(HeaderNonce)
+	timestamp := header.Get(HeaderTimestamp)
+	serial := header.Get(HeaderSerial)
+	sign := header.Get(HeaderSign)
 
 	key, err := p.publicKey(ctx, serial)
 
