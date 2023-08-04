@@ -78,13 +78,3 @@ func HeaderEncode(h http.Header) string {
 
 	return buf.String()
 }
-
-func HeaderToHTTPOption(h http.Header) []HTTPOption {
-	options := make([]HTTPOption, 0, len(h))
-
-	for k, vals := range h {
-		options = append(options, WithHTTPHeader(k, vals...))
-	}
-
-	return options
-}
