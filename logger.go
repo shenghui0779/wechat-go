@@ -19,21 +19,7 @@ func (l *ReqLog) Set(k, v string) {
 
 // SetReqHeader 设置请求头
 func (l *ReqLog) SetReqHeader(h http.Header) {
-	var buf strings.Builder
-
-	for k, vals := range h {
-		for _, v := range vals {
-			if buf.Len() > 0 {
-				buf.WriteString("&")
-			}
-
-			buf.WriteString(k)
-			buf.WriteString("=")
-			buf.WriteString(v)
-		}
-	}
-
-	l.data["request_header"] = buf.String()
+	l.data["request_header"] = HeaderEncode(h)
 }
 
 // SetReqBody 设置请求Body
@@ -43,21 +29,7 @@ func (l *ReqLog) SetReqBody(v string) {
 
 // SetRespHeader 设置返回头
 func (l *ReqLog) SetRespHeader(h http.Header) {
-	var buf strings.Builder
-
-	for k, vals := range h {
-		for _, v := range vals {
-			if buf.Len() > 0 {
-				buf.WriteString("&")
-			}
-
-			buf.WriteString(k)
-			buf.WriteString("=")
-			buf.WriteString(v)
-		}
-	}
-
-	l.data["response_header"] = buf.String()
+	l.data["response_header"] = HeaderEncode(h)
 }
 
 // SetRespBody 设置返回报文
@@ -87,4 +59,32 @@ func NewReqLog(method, reqURL string) *ReqLog {
 			"url":    reqURL,
 		},
 	}
+}
+
+func HeaderEncode(h http.Header) string {
+	var buf strings.Builder
+
+	for k, vals := range h {
+		for _, v := range vals {
+			if buf.Len() > 0 {
+				buf.WriteString("&")
+			}
+
+			buf.WriteString(k)
+			buf.WriteString("=")
+			buf.WriteString(v)
+		}
+	}
+
+	return buf.String()
+}
+
+func HeaderToHTTPOption(h http.Header) []HTTPOption {
+	options := make([]HTTPOption, 0, len(h))
+
+	for k, vals := range h {
+		options = append(options, WithHTTPHeader(k, vals...))
+	}
+
+	return options
 }

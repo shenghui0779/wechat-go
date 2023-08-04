@@ -379,11 +379,11 @@ func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
 
 	log.SetRespBody(string(b))
 
-	if resp.StatusCode >= 300 {
+	if resp.StatusCode >= 400 {
 		return fail(errors.New(string(b)))
 	}
 
-	ret := gjson.ParseBytes(b).Get("data")
+	ret := gjson.GetBytes(b, "data")
 
 	valid := false
 	serial := resp.Header.Get(HeaderSerial)
