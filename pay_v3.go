@@ -26,7 +26,7 @@ type PayV3 struct {
 	apikey   string
 	serialNO string
 	prvKey   *PrivateKey
-	pubKeyM  map[string]*WXPubKey
+	pubKeyM  sync.Map
 	client   HTTPClient
 	mutex    sync.Mutex
 	logger   func(ctx context.Context, data map[string]string)
@@ -97,6 +97,142 @@ func (p *PayV3) URL(path string, query url.Values) string {
 	}
 
 	return builder.String()
+}
+func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, error) {
+	if v, ok := p.pubKeyM.Load(serialNO); ok {
+		return v.(*PublicKey), nil
+	}
+
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	// 再次获取确认
+	if v, ok := p.pubKeyM.Load(serialNO); ok {
+		return v.(*PublicKey), nil
+	}
+
+	ret, err := p.httpCerts(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var pubkey *PublicKey
+
+	for _, v := range ret.Array() {
+		cert := v.Get("encrypt_certificate")
+
+		gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
+		block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
+
+		if err != nil {
+			return nil, err
+		}
+
+		key, err := NewPublicKeyFromDerBlock(block)
+
+		if err != nil {
+			return nil, err
+		}
+
+		certNO := cert.Get("serial_no").String()
+
+		if certNO != serialNO {
+			pubkey = key
+		}
+
+		p.pubKeyM.Store(certNO, key)
+	}
+
+	if pubkey == nil {
+		return nil, fmt.Errorf("no expect cert (%s)", serialNO)
+	}
+
+	return pubkey, nil
+}
+
+func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
+	reqURL := p.URL("/v3/certificates", nil)
+
+	log := NewReqLog(http.MethodGet, reqURL)
+	defer log.Do(ctx, p.logger)
+
+	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, "")
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.Set(HeaderAuth, authStr)
+
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
+
+	if err != nil {
+		return fail(err)
+	}
+
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.SetRespBody(string(b))
+
+	if resp.StatusCode >= 400 {
+		return fail(errors.New(string(b)))
+	}
+
+	ret := gjson.GetBytes(b, "data")
+
+	valid := false
+	serial := resp.Header.Get(HeaderSerial)
+
+	for _, v := range ret.Array() {
+		if v.Get("serial_no").String() == serial {
+			cert := v.Get("encrypt_certificate")
+
+			gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
+			block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
+
+			if err != nil {
+				return fail(err)
+			}
+
+			key, err := NewPublicKeyFromDerBlock(block)
+
+			if err != nil {
+				return fail(err)
+			}
+
+			// 签名验证
+			var builder strings.Builder
+
+			builder.WriteString(resp.Header.Get(HeaderTimestamp))
+			builder.WriteString("\n")
+			builder.WriteString(resp.Header.Get(HeaderNonce))
+			builder.WriteString("\n")
+			builder.Write(b)
+			builder.WriteString("\n")
+
+			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(resp.Header.Get(HeaderSign))); err != nil {
+				return fail(err)
+			}
+
+			valid = true
+		}
+	}
+
+	if !valid {
+		return fail(fmt.Errorf("no vaild cert(%s) in list", serial))
+	}
+
+	return ret, nil
 }
 
 // GetJSON GET请求JSON数据
@@ -283,151 +419,6 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 	_, err = io.Copy(w, resp.Body)
 
 	return err
-}
-
-func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, error) {
-	wxkey, ok := p.pubKeyM[serialNO]
-
-	if ok {
-		return wxkey.Key, nil
-	}
-
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	// 再次获取确认
-	wxkey, ok = p.pubKeyM[serialNO]
-
-	if ok {
-		return wxkey.Key, nil
-	}
-
-	ret, err := p.getPubCerts(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var pubkey *PublicKey
-
-	for _, v := range ret.Array() {
-		cert := v.Get("encrypt_certificate")
-
-		gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
-		block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
-
-		if err != nil {
-			return nil, err
-		}
-
-		key, err := NewPublicKeyFromDerBlock(block)
-
-		if err != nil {
-			return nil, err
-		}
-
-		certNO := cert.Get("serial_no").String()
-
-		p.pubKeyM[certNO] = &WXPubKey{
-			Key:        key,
-			EffectedAt: v.Get("effective_time").Time(),
-			ExpiredAt:  v.Get("expire_time").Time(),
-		}
-
-		if certNO != serialNO {
-			pubkey = key
-		}
-	}
-
-	if pubkey == nil {
-		return nil, fmt.Errorf("no expect cert (%s)", serialNO)
-	}
-
-	return pubkey, nil
-}
-
-func (p *PayV3) getPubCerts(ctx context.Context) (gjson.Result, error) {
-	reqURL := p.URL("/v3/certificates", nil)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, p.logger)
-
-	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, "")
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.Set(HeaderAuth, authStr)
-
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
-
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	b, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
-
-	if resp.StatusCode >= 400 {
-		return fail(errors.New(string(b)))
-	}
-
-	ret := gjson.GetBytes(b, "data")
-
-	valid := false
-	serial := resp.Header.Get(HeaderSerial)
-
-	for _, v := range ret.Array() {
-		if v.Get("serial_no").String() == serial {
-			cert := v.Get("encrypt_certificate")
-
-			gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
-			block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
-
-			if err != nil {
-				return fail(err)
-			}
-
-			key, err := NewPublicKeyFromDerBlock(block)
-
-			if err != nil {
-				return fail(err)
-			}
-
-			// 签名验证
-			var builder strings.Builder
-
-			builder.WriteString(resp.Header.Get(HeaderTimestamp))
-			builder.WriteString("\n")
-			builder.WriteString(resp.Header.Get(HeaderNonce))
-			builder.WriteString("\n")
-			builder.Write(b)
-			builder.WriteString("\n")
-
-			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(resp.Header.Get(HeaderSign))); err != nil {
-				return fail(err)
-			}
-
-			valid = true
-		}
-	}
-
-	if !valid {
-		return fail(fmt.Errorf("no vaild cert (%s) in list", serial))
-	}
-
-	return ret, nil
 }
 
 // Authorization 生成签名并返回 HTTP Authorization

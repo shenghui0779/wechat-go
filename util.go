@@ -15,7 +15,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/tidwall/gjson"
 	"golang.org/x/crypto/pkcs12"
@@ -40,13 +39,6 @@ func (c CDATA) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 type APIResult struct {
 	Code int // HTTP状态码
 	Body gjson.Result
-}
-
-// WXPubKey 微信平台证书公钥
-type WXPubKey struct {
-	Key        *PublicKey
-	EffectedAt time.Time
-	ExpiredAt  time.Time
 }
 
 // DownloadResult 资源下载结果 (支付v3)
