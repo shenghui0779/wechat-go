@@ -52,26 +52,44 @@ func (p *PayV3) SetHTTPClient(c *http.Client) {
 	p.client = NewHTTPClient(c)
 }
 
-// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
-func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
-	p.prvKey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
+// SetPrivateKeyFromPemBlock 通过PEM字节设置商户RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
+	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
 
-	return
+	if err != nil {
+		return err
+	}
+
+	p.prvKey = key
+
+	return nil
 }
 
-// SetPrivateKeyFromPemFile  通过PEM文件设置RSA私钥
-func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
-	p.prvKey, err = NewPrivateKeyFromPemFile(mode, pemFile)
+// SetPrivateKeyFromPemFile 通过PEM文件设置商户RSA私钥
+func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
+	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
 
-	return
+	if err != nil {
+		return err
+	}
+
+	p.prvKey = key
+
+	return nil
 }
 
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置商户RSA私钥
 // 注意：证书需采用「TripleDES-SHA1」加密方式
-func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
-	p.prvKey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
+func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
+	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
 
-	return
+	if err != nil {
+		return err
+	}
+
+	p.prvKey = key
+
+	return nil
 }
 
 // WithLogger 设置日志记录

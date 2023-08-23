@@ -17,8 +17,7 @@ type Corp struct {
 	host   string
 	corpid string
 	secret string
-	token  string
-	aeskey string
+	srvCfg *ServerConfig
 	client HTTPClient
 	logger func(ctx context.Context, data map[string]string)
 }
@@ -36,8 +35,8 @@ func (c *Corp) Secret() string {
 // WithServerConfig 设置服务器配置
 // [参考](https://developer.work.weixin.qq.com/document/path/90968)
 func (c *Corp) SetServerConfig(token, aeskey string) {
-	c.token = token
-	c.aeskey = aeskey
+	c.srvCfg.token = token
+	c.srvCfg.aeskey = aeskey
 }
 
 // SetHTTPClient 设置请求的 HTTP Client
@@ -311,14 +310,14 @@ func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form U
 // 验证消息来自微信服务器，使用：msg_signature、timestamp、nonce、echostr（若验证成功，解密echostr后返回msg字段内容）
 // [参考](https://developer.work.weixin.qq.com/document/path/90930)
 func (c *Corp) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(c.token, items...)
+	signStr := SignWithSHA1(c.srvCfg.token, items...)
 
 	return signStr == signature
 }
 
 // DecryptEventMsg 事件消息解密
 func (c *Corp) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(c.corpid, c.aeskey, encrypt)
+	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
@@ -329,7 +328,7 @@ func (c *Corp) DecryptEventMsg(encrypt string) (V, error) {
 
 // ReplyEventMsg 事件消息回复
 func (c *Corp) ReplyEventMsg(msg V) (V, error) {
-	return EventReply(c.corpid, c.token, c.aeskey, msg)
+	return EventReply(c.corpid, c.srvCfg.token, c.srvCfg.aeskey, msg)
 }
 
 func NewCorp(corpid, secret string) *Corp {
@@ -337,6 +336,7 @@ func NewCorp(corpid, secret string) *Corp {
 		host:   "https://qyapi.weixin.qq.com",
 		corpid: corpid,
 		secret: secret,
+		srvCfg: new(ServerConfig),
 		client: NewDefaultClient(),
 	}
 }

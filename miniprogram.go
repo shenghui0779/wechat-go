@@ -12,13 +12,21 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// SafeMode 安全模式配置
+type SafeMode struct {
+	aeskey   string
+	prvKey   *PrivateKey
+	serialNO string
+	pubKey   *PublicKey
+}
+
 // MiniProgram 小程序
 type MiniProgram struct {
 	host   string
 	appid  string
 	secret string
-	token  string
-	aeskey string
+	srvCfg *ServerConfig
+	sfMode *SafeMode
 	client HTTPClient
 	logger func(ctx context.Context, data map[string]string)
 }
@@ -34,15 +42,88 @@ func (mp *MiniProgram) Secret() string {
 }
 
 // WithServerConfig 设置服务器配置
-// [参考](https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html)
+// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
 func (mp *MiniProgram) SetServerConfig(token, aeskey string) {
-	mp.token = token
-	mp.aeskey = aeskey
+	mp.srvCfg.token = token
+	mp.srvCfg.aeskey = aeskey
 }
 
 // SetHTTPClient 设置请求的 HTTP Client
 func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
 	mp.client = NewHTTPClient(c)
+}
+
+// SetAesGCMKey 设置 AES-GCM 加密Key
+func (mp *MiniProgram) SetAesGCMKey(key string) {
+	mp.sfMode.aeskey = key
+}
+
+// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
+func (mp *MiniProgram) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
+	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
+
+	if err != nil {
+		return err
+	}
+
+	mp.sfMode.prvKey = key
+
+	return nil
+}
+
+// SetPrivateKeyFromPemFile 通过PEM文件设置RSA私钥
+func (mp *MiniProgram) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
+	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
+
+	if err != nil {
+		return err
+	}
+
+	mp.sfMode.prvKey = key
+
+	return nil
+}
+
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
+// 注意：证书需采用「TripleDES-SHA1」加密方式
+func (mp *MiniProgram) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
+	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
+
+	if err != nil {
+		return err
+	}
+
+	mp.sfMode.prvKey = key
+
+	return nil
+}
+
+// NewPublicKeyFromPemBlock 通过PEM字节设置平台RSA公钥
+func (mp *MiniProgram) SetPublicKeyFromPemBlock(serialNO string, mode RSAPaddingMode, pemBlock []byte) error {
+	key, err := NewPublicKeyFromPemBlock(mode, pemBlock)
+
+	if err != nil {
+		return err
+	}
+
+	mp.sfMode.serialNO = serialNO
+	mp.sfMode.pubKey = key
+
+	return nil
+}
+
+// NewPublicKeyFromPemFile 通过PEM文件设置平台RSA公钥
+func (mp *MiniProgram) SetPublicKeyFromPemFile(serialNO string, mode RSAPaddingMode, pemFile string) error {
+	key, err := NewPublicKeyFromPemFile(mode, pemFile)
+
+	if err != nil {
+		return err
+	}
+
+	mp.sfMode.serialNO = serialNO
+	mp.sfMode.pubKey = key
+
+	return nil
 }
 
 // WithLogger 设置日志记录
@@ -304,19 +385,23 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	return ret, nil
 }
 
+func (mp *MiniProgram) sign(path string, params X) error {
+	return nil
+}
+
 // VerifyEventSign 验证事件消息签名
 // 验证事件消息签名，使用：msg_signature、timestamp、nonce、msg_encrypt
 // 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
 func (mp *MiniProgram) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(mp.token, items...)
+	signStr := SignWithSHA1(mp.srvCfg.token, items...)
 
 	return signStr == signature
 }
 
 // DecryptEventMsg 事件消息解密
 func (mp *MiniProgram) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(mp.appid, mp.aeskey, encrypt)
+	b, err := EventDecrypt(mp.appid, mp.srvCfg.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
@@ -327,7 +412,7 @@ func (mp *MiniProgram) DecryptEventMsg(encrypt string) (V, error) {
 
 // ReplyEventMsg 事件消息回复
 func (mp *MiniProgram) ReplyEventMsg(msg V) (V, error) {
-	return EventReply(mp.appid, mp.token, mp.aeskey, msg)
+	return EventReply(mp.appid, mp.srvCfg.token, mp.srvCfg.aeskey, msg)
 }
 
 func NewMiniProgram(appid, secret string) *MiniProgram {
@@ -335,5 +420,7 @@ func NewMiniProgram(appid, secret string) *MiniProgram {
 		host:   "https://api.weixin.qq.com",
 		appid:  appid,
 		secret: secret,
+		srvCfg: new(ServerConfig),
+		client: NewDefaultClient(),
 	}
 }

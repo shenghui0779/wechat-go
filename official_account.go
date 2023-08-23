@@ -12,13 +12,18 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// ServerConfig 服务器配置
+type ServerConfig struct {
+	token  string
+	aeskey string
+}
+
 // OfficialAccount 微信公众号
 type OfficialAccount struct {
 	host   string
 	appid  string
 	secret string
-	token  string
-	aeskey string
+	srvCfg *ServerConfig
 	client HTTPClient
 	logger func(ctx context.Context, data map[string]string)
 }
@@ -36,8 +41,8 @@ func (oa *OfficialAccount) Secret() string {
 // WithServerConfig 设置服务器配置
 // [参考](https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html)
 func (oa *OfficialAccount) SetServerConfig(token, aeskey string) {
-	oa.token = token
-	oa.aeskey = aeskey
+	oa.srvCfg.token = token
+	oa.srvCfg.aeskey = aeskey
 }
 
 // SetHTTPClient 设置请求的 HTTP Client
@@ -348,14 +353,14 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 // 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
 func (oa *OfficialAccount) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(oa.token, items...)
+	signStr := SignWithSHA1(oa.srvCfg.token, items...)
 
 	return signStr == signature
 }
 
 // DecryptEventMsg 事件消息解密
 func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(oa.appid, oa.aeskey, encrypt)
+	b, err := EventDecrypt(oa.appid, oa.srvCfg.aeskey, encrypt)
 
 	if err != nil {
 		return nil, err
@@ -366,7 +371,7 @@ func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (V, error) {
 
 // ReplyEventMsg 事件消息回复
 func (oa *OfficialAccount) ReplyEventMsg(msg V) (V, error) {
-	return EventReply(oa.appid, oa.token, oa.aeskey, msg)
+	return EventReply(oa.appid, oa.srvCfg.token, oa.srvCfg.aeskey, msg)
 }
 
 func NewOfficialAccount(appid, secret string) *OfficialAccount {
@@ -374,5 +379,7 @@ func NewOfficialAccount(appid, secret string) *OfficialAccount {
 		host:   "https://api.weixin.qq.com",
 		appid:  appid,
 		secret: secret,
+		srvCfg: new(ServerConfig),
+		client: NewDefaultClient(),
 	}
 }
