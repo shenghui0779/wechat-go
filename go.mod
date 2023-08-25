@@ -4,8 +4,8 @@ go 1.18
 
 require (
 	github.com/stretchr/testify v1.8.4
-	github.com/tidwall/gjson v1.15.0
-	golang.org/x/crypto v0.11.0
+	github.com/tidwall/gjson v1.16.0
+	golang.org/x/crypto v0.12.0
 )
 
 require (

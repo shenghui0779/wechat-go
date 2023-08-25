@@ -32,23 +32,6 @@ func (c *Corp) Secret() string {
 	return c.secret
 }
 
-// WithServerConfig 设置服务器配置
-// [参考](https://developer.work.weixin.qq.com/document/path/90968)
-func (c *Corp) SetServerConfig(token, aeskey string) {
-	c.srvCfg.token = token
-	c.srvCfg.aeskey = aeskey
-}
-
-// SetHTTPClient 设置请求的 HTTP Client
-func (c *Corp) SetHTTPClient(cli *http.Client) {
-	c.client = NewHTTPClient(cli)
-}
-
-// WithLogger 设置日志记录
-func (c *Corp) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	c.logger = f
-}
-
 // URL 生成请求URL
 func (c *Corp) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -81,7 +64,7 @@ func (c *Corp) OAuthURL(scope AuthScope, redirectURI, state, agentID string) str
 	query.Set("state", state)
 	query.Set("agentid", agentID)
 
-	return fmt.Sprintf("https://open.weixin.qq.com/connect/oauth2/authorize?%s#wechat_redirect", query.Encode())
+	return fmt.Sprintf("https://open.weixin.qq.com/connect/cuth2/authorize?%s#wechat_redirect", query.Encode())
 }
 
 // AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
@@ -266,8 +249,8 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	return b, nil
 }
 
-// Upload 上传媒体资源
-func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
+// Uplcd 上传媒体资源
+func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -331,12 +314,45 @@ func (c *Corp) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(c.corpid, c.srvCfg.token, c.srvCfg.aeskey, msg)
 }
 
-func NewCorp(corpid, secret string) *Corp {
-	return &Corp{
+// CorpOption 企业微信设置项
+type CorpOption func(c *Corp)
+
+// WithCorpServerConfig 设置企业微信服务器配置
+// [参考](https://developer.work.weixin.qq.com/document/path/90968)
+func WithCorpServerConfig(token, aeskey string) CorpOption {
+	return func(c *Corp) {
+		c.srvCfg.token = token
+		c.srvCfg.aeskey = aeskey
+	}
+}
+
+// WithCorpClient 设置企业微信请求的 HTTP Client
+func WithCorpClient(cli *http.Client) CorpOption {
+	return func(c *Corp) {
+		c.client = NewHTTPClient(cli)
+	}
+}
+
+// WithCorpLogger 设置企业微信日志记录
+func WithCorpLogger(f func(ctx context.Context, data map[string]string)) CorpOption {
+	return func(c *Corp) {
+		c.logger = f
+	}
+}
+
+// NewCorp 生成一个企业微信实例
+func NewCorp(corpid, secret string, options ...CorpOption) *Corp {
+	c := &Corp{
 		host:   "https://qyapi.weixin.qq.com",
 		corpid: corpid,
 		secret: secret,
 		srvCfg: new(ServerConfig),
 		client: NewDefaultClient(),
 	}
+
+	for _, f := range options {
+		f(c)
+	}
+
+	return c
 }

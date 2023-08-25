@@ -38,23 +38,6 @@ func (oa *OfficialAccount) Secret() string {
 	return oa.secret
 }
 
-// WithServerConfig 设置服务器配置
-// [参考](https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html)
-func (oa *OfficialAccount) SetServerConfig(token, aeskey string) {
-	oa.srvCfg.token = token
-	oa.srvCfg.aeskey = aeskey
-}
-
-// SetHTTPClient 设置请求的 HTTP Client
-func (oa *OfficialAccount) SetHTTPClient(c *http.Client) {
-	oa.client = NewHTTPClient(c)
-}
-
-// WithLogger 设置日志记录
-func (oa *OfficialAccount) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	oa.logger = f
-}
-
 // URL 生成请求URL
 func (oa *OfficialAccount) URL(path string, query url.Values) string {
 	var builder strings.Builder
@@ -374,12 +357,45 @@ func (oa *OfficialAccount) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(oa.appid, oa.srvCfg.token, oa.srvCfg.aeskey, msg)
 }
 
-func NewOfficialAccount(appid, secret string) *OfficialAccount {
-	return &OfficialAccount{
+// OAOption 公众号设置项
+type OAOption func(oa *OfficialAccount)
+
+// WithOAServerConfig 设置公众号服务器配置
+// [参考](https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html)
+func WithOAServerConfig(token, aeskey string) OAOption {
+	return func(oa *OfficialAccount) {
+		oa.srvCfg.token = token
+		oa.srvCfg.aeskey = aeskey
+	}
+}
+
+// WithOAClient 设置公众号请求的 HTTP Client
+func WithOAClient(c *http.Client) OAOption {
+	return func(oa *OfficialAccount) {
+		oa.client = NewHTTPClient(c)
+	}
+}
+
+// WithOALogger 设置公众号日志记录
+func WithOALogger(f func(ctx context.Context, data map[string]string)) OAOption {
+	return func(oa *OfficialAccount) {
+		oa.logger = f
+	}
+}
+
+// NewOfficialAccount 生成一个公众号实例
+func NewOfficialAccount(appid, secret string, options ...OAOption) *OfficialAccount {
+	oa := &OfficialAccount{
 		host:   "https://api.weixin.qq.com",
 		appid:  appid,
 		secret: secret,
 		srvCfg: new(ServerConfig),
 		client: NewDefaultClient(),
 	}
+
+	for _, f := range options {
+		f(oa)
+	}
+
+	return oa
 }

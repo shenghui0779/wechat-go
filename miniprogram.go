@@ -2,22 +2,28 @@ package wechat
 
 import (
 	"context"
+	"crypto"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tidwall/gjson"
 )
 
-// SafeMode 安全模式配置
+// SafeMode 安全鉴权模式配置
 type SafeMode struct {
-	aeskey   string
-	prvKey   *PrivateKey
-	serialNO string
-	pubKey   *PublicKey
+	aesSN  string
+	aeskey string
+	prvKey *PrivateKey
+	pubSN  string
+	pubKey *PublicKey
 }
 
 // MiniProgram 小程序
@@ -39,96 +45,6 @@ func (mp *MiniProgram) AppID() string {
 // Secret 返回Secret
 func (mp *MiniProgram) Secret() string {
 	return mp.secret
-}
-
-// WithServerConfig 设置服务器配置
-// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
-func (mp *MiniProgram) SetServerConfig(token, aeskey string) {
-	mp.srvCfg.token = token
-	mp.srvCfg.aeskey = aeskey
-}
-
-// SetHTTPClient 设置请求的 HTTP Client
-func (mp *MiniProgram) SetHTTPClient(c *http.Client) {
-	mp.client = NewHTTPClient(c)
-}
-
-// SetAesGCMKey 设置 AES-GCM 加密Key
-func (mp *MiniProgram) SetAesGCMKey(key string) {
-	mp.sfMode.aeskey = key
-}
-
-// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
-func (mp *MiniProgram) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	mp.sfMode.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPemFile 通过PEM文件设置RSA私钥
-func (mp *MiniProgram) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	mp.sfMode.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
-// 注意：证书需采用「TripleDES-SHA1」加密方式
-func (mp *MiniProgram) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
-	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
-
-	if err != nil {
-		return err
-	}
-
-	mp.sfMode.prvKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemBlock 通过PEM字节设置平台RSA公钥
-func (mp *MiniProgram) SetPublicKeyFromPemBlock(serialNO string, mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPublicKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	mp.sfMode.serialNO = serialNO
-	mp.sfMode.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemFile 通过PEM文件设置平台RSA公钥
-func (mp *MiniProgram) SetPublicKeyFromPemFile(serialNO string, mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPublicKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	mp.sfMode.serialNO = serialNO
-	mp.sfMode.pubKey = key
-
-	return nil
-}
-
-// WithLogger 设置日志记录
-func (mp *MiniProgram) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	mp.logger = f
 }
 
 // URL 生成请求URL
@@ -260,6 +176,92 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 	return ret, nil
 }
 
+// SafePostJSON POST请求JSON数据 (安全鉴权模式，支持的api可参考https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc)
+func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	now := time.Now().Unix()
+
+	// 加密
+	params, err := mp.encrypt(log, path, query, params, now)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	body, err := json.Marshal(params)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.SetReqBody(string(body))
+
+	// 签名
+	sign, err := mp.sign(path, now, body)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	reqHeader := http.Header{}
+
+	reqHeader.Set(HeaderContentType, ContentJSON)
+	reqHeader.Set(HeaderMPAppID, mp.appid)
+	reqHeader.Set(HeaderMPTimestamp, strconv.FormatInt(now, 10))
+	reqHeader.Set(HeaderMPSignature, sign)
+
+	log.SetReqHeader(reqHeader)
+
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
+	}
+
+	b, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.SetRespBody(string(b))
+
+	// 验签
+	if err = mp.verify(path, resp.Header, b); err != nil {
+		return fail(err)
+	}
+
+	// 解密
+	data, err := mp.decrypt(b)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.Set("origin_response_body", string(data))
+
+	ret := gjson.ParseBytes(data)
+
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
+}
+
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
 func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
 	reqURL := mp.URL(path, query)
@@ -346,6 +348,92 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 	return b, nil
 }
 
+// SafePostBuffer POST请求获取buffer (如：获取二维码；安全鉴权模式，支持的api可参考https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc)
+func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
+	reqURL := mp.URL(path, query)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, mp.logger)
+
+	now := time.Now().Unix()
+
+	// 加密
+	params, err := mp.encrypt(log, path, query, params, now)
+
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := json.Marshal(params)
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetReqBody(string(body))
+
+	// 签名
+	sign, err := mp.sign(path, now, body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	reqHeader := http.Header{}
+
+	reqHeader.Set(HeaderContentType, ContentJSON)
+	reqHeader.Set(HeaderMPAppID, mp.appid)
+	reqHeader.Set(HeaderMPTimestamp, strconv.FormatInt(now, 10))
+	reqHeader.Set(HeaderMPSignature, sign)
+
+	log.SetReqHeader(reqHeader)
+
+	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetRespBody(string(b))
+
+	// 验签
+	if err = mp.verify(path, resp.Header, b); err != nil {
+		return nil, err
+	}
+
+	// 解密
+	data, err := mp.decrypt(b)
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.Set("origin_response_body", string(data))
+
+	ret := gjson.ParseBytes(data)
+
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
+	}
+
+	return data, nil
+}
+
 // Upload 上传媒体资源
 func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := mp.URL(path, query)
@@ -385,8 +473,159 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	return ret, nil
 }
 
-func (mp *MiniProgram) sign(path string, params X) error {
-	return nil
+func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, params X, timestamp int64) (X, error) {
+	if len(mp.sfMode.aeskey) == 0 {
+		return nil, errors.New("aes-gcm key not found (forgotten configure?)")
+	}
+
+	if params == nil {
+		params = X{}
+	}
+
+	params["_n"] = base64.StdEncoding.EncodeToString(NonceByte(16))
+	params["_appid"] = mp.appid
+	params["_timestamp"] = timestamp
+
+	for k, v := range query {
+		if k != AccessToken && len(v) != 0 {
+			params[k] = v[0]
+		}
+	}
+
+	data, err := json.Marshal(params)
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.Set("origin_request_body", string(data))
+
+	key, err := base64.StdEncoding.DecodeString(mp.sfMode.aeskey)
+
+	if err != nil {
+		return nil, err
+	}
+
+	iv := NonceByte(12)
+	authtag := fmt.Sprintf("%s|%s|%d|%s", mp.URL(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
+
+	gcm := NewAesGCM(key, iv)
+
+	b, err := gcm.Encrypt(data, []byte(authtag))
+
+	if err != nil {
+		return nil, err
+	}
+
+	body := X{
+		"iv":      base64.StdEncoding.EncodeToString(iv),
+		"data":    base64.StdEncoding.EncodeToString(b),
+		"authtag": base64.StdEncoding.EncodeToString([]byte(authtag)),
+	}
+
+	return body, nil
+}
+
+func (mp *MiniProgram) sign(path string, timestamp int64, body []byte) (string, error) {
+	if mp.sfMode.prvKey == nil {
+		return "", errors.New("private key not found (forgotten configure?)")
+	}
+
+	var builder strings.Builder
+
+	builder.WriteString(mp.URL(path, nil))
+	builder.WriteString("\n")
+	builder.WriteString(mp.appid)
+	builder.WriteString("\n")
+	builder.WriteString(strconv.FormatInt(timestamp, 10))
+	builder.WriteString("\n")
+	builder.Write(body)
+
+	sign, err := mp.sfMode.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
+
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(sign), nil
+}
+
+func (mp *MiniProgram) verify(path string, header http.Header, body []byte) error {
+	if mp.sfMode.pubKey == nil {
+		return errors.New("public key not found (forgotten configure?)")
+	}
+
+	if appid := header.Get(HeaderMPAppID); appid != mp.appid {
+		return fmt.Errorf("header appid mismatch, expect = %s", mp.appid)
+	}
+
+	sign := ""
+
+	if serial := header.Get(HeaderMPSerial); serial == mp.sfMode.pubSN {
+		sign = header.Get(HeaderMPSignature)
+	} else {
+		serialDeprecated := header.Get(HeaderMPSerialDeprecated)
+
+		if serialDeprecated != mp.sfMode.pubSN {
+			return fmt.Errorf("header serial mismatch, expect = %s", mp.sfMode.pubSN)
+		}
+
+		sign = header.Get(HeaderMPSignatureDeprecated)
+	}
+
+	b, err := base64.StdEncoding.DecodeString(sign)
+
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+
+	builder.WriteString(mp.URL(path, nil))
+	builder.WriteString("\n")
+	builder.WriteString(mp.appid)
+	builder.WriteString("\n")
+	builder.WriteString(header.Get(HeaderMPTimestamp))
+	builder.WriteString("\n")
+	builder.Write(body)
+
+	return mp.sfMode.pubKey.Verify(crypto.SHA256, []byte(builder.String()), b)
+}
+
+func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
+	if len(mp.sfMode.aeskey) == 0 {
+		return nil, errors.New("aes-gcm key not found (forgotten configure?)")
+	}
+
+	key, err := base64.StdEncoding.DecodeString(mp.sfMode.aeskey)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ret := gjson.ParseBytes(body)
+
+	iv, err := base64.StdEncoding.DecodeString(ret.Get("iv").String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := base64.StdEncoding.DecodeString(ret.Get("data").String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	authtag, err := base64.StdEncoding.DecodeString(ret.Get("authtag").String())
+
+	if err != nil {
+		return nil, err
+	}
+
+	gcm := NewAesGCM(key, iv)
+
+	return gcm.Decrypt(data, authtag)
 }
 
 // VerifyEventSign 验证事件消息签名
@@ -415,12 +654,68 @@ func (mp *MiniProgram) ReplyEventMsg(msg V) (V, error) {
 	return EventReply(mp.appid, mp.srvCfg.token, mp.srvCfg.aeskey, msg)
 }
 
-func NewMiniProgram(appid, secret string) *MiniProgram {
-	return &MiniProgram{
+// MPOption 小程序设置项
+type MPOption func(mp *MiniProgram)
+
+// WithServerConfig 设置小程序服务器配置
+// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
+func WithMPServerConfig(token, aeskey string) MPOption {
+	return func(mp *MiniProgram) {
+		mp.srvCfg.token = token
+		mp.srvCfg.aeskey = aeskey
+	}
+}
+
+// WithMPClient 设置小程序请求的 HTTP Client
+func WithMPClient(c *http.Client) MPOption {
+	return func(mp *MiniProgram) {
+		mp.client = NewHTTPClient(c)
+	}
+}
+
+// WithMPAesKey 设置小程序 AES-GCM 加密Key
+func (mp *MiniProgram) WithMPAesKey(serialNO, key string) MPOption {
+	return func(mp *MiniProgram) {
+		mp.sfMode.aesSN = serialNO
+		mp.sfMode.aeskey = key
+	}
+}
+
+// WithMPPrivateKey 设置小程序RSA私钥
+func (mp *MiniProgram) WithPrivateKey(key *PrivateKey) MPOption {
+	return func(mp *MiniProgram) {
+		mp.sfMode.prvKey = key
+	}
+}
+
+// SetMPPublicKey 设置小程序平台RSA公钥
+func (mp *MiniProgram) SetPublicKey(serialNO string, key *PublicKey) MPOption {
+	return func(mp *MiniProgram) {
+		mp.sfMode.pubSN = serialNO
+		mp.sfMode.pubKey = key
+	}
+}
+
+// WithMPLogger 设置小程序日志记录
+func WithMPLogger(f func(ctx context.Context, data map[string]string)) MPOption {
+	return func(mp *MiniProgram) {
+		mp.logger = f
+	}
+}
+
+// NewMiniProgram 生成一个小程序实例
+func NewMiniProgram(appid, secret string, options ...MPOption) *MiniProgram {
+	mp := &MiniProgram{
 		host:   "https://api.weixin.qq.com",
 		appid:  appid,
 		secret: secret,
 		srvCfg: new(ServerConfig),
 		client: NewDefaultClient(),
 	}
+
+	for _, f := range options {
+		f(mp)
+	}
+
+	return mp
 }

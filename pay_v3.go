@@ -20,16 +20,16 @@ import (
 
 // PayV3 微信支付V3
 type PayV3 struct {
-	host     string
-	mchid    string
-	appid    string
-	apikey   string
-	serialNO string
-	prvKey   *PrivateKey
-	pubKeyM  sync.Map
-	client   HTTPClient
-	mutex    sync.Mutex
-	logger   func(ctx context.Context, data map[string]string)
+	host    string
+	mchid   string
+	appid   string
+	apikey  string
+	prvSN   string
+	prvKey  *PrivateKey
+	pubKeyM sync.Map
+	client  HTTPClient
+	mutex   sync.Mutex
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // MchID 返回mchid
@@ -45,56 +45,6 @@ func (p *PayV3) AppID() string {
 // ApiKey 返回apikey
 func (p *PayV3) ApiKey() string {
 	return p.apikey
-}
-
-// SetHTTPClient 设置无证书 HTTP Client
-func (p *PayV3) SetHTTPClient(c *http.Client) {
-	p.client = NewHTTPClient(c)
-}
-
-// SetPrivateKeyFromPemBlock 通过PEM字节设置商户RSA私钥
-func (p *PayV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	p.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPemFile 通过PEM文件设置商户RSA私钥
-func (p *PayV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	p.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置商户RSA私钥
-// 注意：证书需采用「TripleDES-SHA1」加密方式
-func (p *PayV3) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
-	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
-
-	if err != nil {
-		return err
-	}
-
-	p.prvKey = key
-
-	return nil
-}
-
-// WithLogger 设置日志记录
-func (p *PayV3) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	p.logger = f
 }
 
 // URL 生成请求URL
@@ -116,6 +66,7 @@ func (p *PayV3) URL(path string, query url.Values) string {
 
 	return builder.String()
 }
+
 func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, error) {
 	if v, ok := p.pubKeyM.Load(serialNO); ok {
 		return v.(*PublicKey), nil
@@ -181,9 +132,9 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 		return fail(err)
 	}
 
-	log.Set(HeaderAuth, authStr)
+	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr))
+	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuthorization, authStr))
 
 	if err != nil {
 		return fail(err)
@@ -209,7 +160,7 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	ret := gjson.GetBytes(b, "data")
 
 	valid := false
-	serial := resp.Header.Get(HeaderSerial)
+	serial := resp.Header.Get(HeaderPaySerial)
 
 	for _, v := range ret.Array() {
 		if v.Get("serial_no").String() == serial {
@@ -231,14 +182,14 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 			// 签名验证
 			var builder strings.Builder
 
-			builder.WriteString(resp.Header.Get(HeaderTimestamp))
+			builder.WriteString(resp.Header.Get(HeaderPayTimestamp))
 			builder.WriteString("\n")
-			builder.WriteString(resp.Header.Get(HeaderNonce))
+			builder.WriteString(resp.Header.Get(HeaderPayNonce))
 			builder.WriteString("\n")
 			builder.Write(b)
 			builder.WriteString("\n")
 
-			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(resp.Header.Get(HeaderSign))); err != nil {
+			if err = key.Verify(crypto.SHA256, []byte(builder.String()), []byte(resp.Header.Get(HeaderPaySignature))); err != nil {
 				return fail(err)
 			}
 
@@ -266,11 +217,11 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*AP
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	log.Set(HeaderAuthorization, authStr)
 
 	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil,
 		WithHTTPHeader(HeaderAccept, "application/json"),
-		WithHTTPHeader(HeaderAuth, authStr),
+		WithHTTPHeader(HeaderAuthorization, authStr),
 	)
 
 	if err != nil {
@@ -324,12 +275,12 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	log.Set(HeaderAuthorization, authStr)
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body,
 		WithHTTPHeader(HeaderAccept, "application/json"),
-		WithHTTPHeader(HeaderAuth, authStr),
-		WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"),
+		WithHTTPHeader(HeaderAuthorization, authStr),
+		WithHTTPHeader(HeaderContentType, ContentJSON),
 	)
 
 	if err != nil {
@@ -375,9 +326,9 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIR
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuth, authStr))
+	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
 
 	if err != nil {
 		return nil, err
@@ -421,9 +372,9 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 		return err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuth, authStr))
+	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
 
 	if err != nil {
 		return err
@@ -477,17 +428,17 @@ func (p *PayV3) Authorization(method, path string, query url.Values, body string
 		return "", err
 	}
 
-	auth := fmt.Sprintf(`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%s",serial_no="%s"`, p.mchid, nonce, base64.StdEncoding.EncodeToString(sign), timestamp, p.serialNO)
+	auth := fmt.Sprintf(`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%s",serial_no="%s"`, p.mchid, nonce, base64.StdEncoding.EncodeToString(sign), timestamp, p.prvSN)
 
 	return auth, nil
 }
 
 // Verify 验证微信签名
 func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) error {
-	nonce := header.Get(HeaderNonce)
-	timestamp := header.Get(HeaderTimestamp)
-	serial := header.Get(HeaderSerial)
-	sign := header.Get(HeaderSign)
+	nonce := header.Get(HeaderPayNonce)
+	timestamp := header.Get(HeaderPayTimestamp)
+	serial := header.Get(HeaderPaySerial)
+	sign := header.Get(HeaderPaySignature)
 
 	key, err := p.publicKey(ctx, serial)
 
@@ -582,13 +533,44 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 	return v, nil
 }
 
-func NewPayV3(mchid, appid, apikey, serialNO string) *PayV3 {
-	return &PayV3{
-		host:     "https://api.mch.weixin.qq.com",
-		mchid:    mchid,
-		appid:    appid,
-		apikey:   apikey,
-		serialNO: serialNO,
-		client:   NewDefaultClient(),
+// PayV3Option 微信支付(v3)设置项
+type PayV3Option func(p *PayV3)
+
+// SetHTTPClient 设置支付(v3)请求的 HTTP Client
+func WithPayV3Client(c *http.Client) PayV3Option {
+	return func(p *PayV3) {
+		p.client = NewHTTPClient(c)
 	}
+}
+
+// WithPayV3PrivateKey 设置支付(v3)商户RSA私钥
+func WithPayV3PrivateKey(serialNO string, key *PrivateKey) PayV3Option {
+	return func(p *PayV3) {
+		p.prvSN = serialNO
+		p.prvKey = key
+	}
+}
+
+// WithPayV3Logger 设置支付(v3)日志记录
+func WithPayV3Logger(f func(ctx context.Context, data map[string]string)) PayV3Option {
+	return func(p *PayV3) {
+		p.logger = f
+	}
+}
+
+// NewPayV3 生成一个微信支付(v3)实例
+func NewPayV3(mchid, appid, apikey string, options ...PayV3Option) *PayV3 {
+	pay := &PayV3{
+		host:   "https://api.mch.weixin.qq.com",
+		mchid:  mchid,
+		appid:  appid,
+		apikey: apikey,
+		client: NewDefaultClient(),
+	}
+
+	for _, f := range options {
+		f(pay)
+	}
+
+	return pay
 }

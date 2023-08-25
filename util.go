@@ -56,6 +56,14 @@ func Nonce(size uint) string {
 	return hex.EncodeToString(nonce)
 }
 
+// NonceByte 生成指定长度的随机字节 (最好是偶数)
+func NonceByte(size uint) []byte {
+	nonce := make([]byte, size/2)
+	io.ReadFull(rand.Reader, nonce)
+
+	return nonce
+}
+
 // MD5 计算md5值
 func MD5(s string) string {
 	h := md5.New()

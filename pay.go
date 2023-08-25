@@ -2,6 +2,7 @@ package wechat
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -36,34 +37,6 @@ func (p *Pay) AppID() string {
 // ApiKey 返回apikey
 func (p *Pay) ApiKey() string {
 	return p.apikey
-}
-
-// SetTLSCert 设置TLS证书
-func (p *Pay) SetCertificate(pfxFile string) error {
-	cert, err := LoadCertFromPfxFile(pfxFile, p.mchid)
-
-	if err != nil {
-		return err
-	}
-
-	p.tlscli = NewDefaultClient(cert)
-
-	return nil
-}
-
-// SetHTTPClient 设置自定义无证书Client
-func (p *Pay) SetHTTPClient(c *http.Client) {
-	p.client = NewHTTPClient(c)
-}
-
-// SetTLSClient 设置自定义带证书Client
-func (p *Pay) SetTLSClient(c *http.Client) {
-	p.tlscli = NewHTTPClient(c)
-}
-
-// WithLogger 设置日志记录
-func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	p.logger = f
 }
 
 // URL 生成请求URL
@@ -417,11 +390,49 @@ func (p *Pay) MinipRedpackJSAPI(pkg string) V {
 	return v
 }
 
-func NewPay(mchid, appid, apikey string) *Pay {
-	return &Pay{
+// PayOption 微信支付设置项
+type PayOption func(p *Pay)
+
+// WithTLSCert 设置支付TLS证书
+func WithTLSCert(cert tls.Certificate) PayOption {
+	return func(p *Pay) {
+		p.tlscli = NewDefaultClient(cert)
+	}
+}
+
+// SetHTTPClient 设置支付无证书 HTTP Client
+func (p *Pay) SetHTTPClient(c *http.Client) PayOption {
+	return func(p *Pay) {
+		p.client = NewHTTPClient(c)
+	}
+}
+
+// SetTLSClient 设置支付带证书 HTTP Client
+func (p *Pay) SetTLSClient(c *http.Client) PayOption {
+	return func(p *Pay) {
+		p.tlscli = NewHTTPClient(c)
+	}
+}
+
+// WithLogger 设置支付日志记录
+func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) PayOption {
+	return func(p *Pay) {
+		p.logger = f
+	}
+}
+
+// NewPay 生成一个微信支付实例
+func NewPay(mchid, appid, apikey string, options ...PayOption) *Pay {
+	pay := &Pay{
 		host:   "https://api.mch.weixin.qq.com",
 		mchid:  mchid,
 		appid:  appid,
 		apikey: apikey,
 	}
+
+	for _, f := range options {
+		f(pay)
+	}
+
+	return pay
 }

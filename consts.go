@@ -1,15 +1,25 @@
 package wechat
 
+const AccessToken = "access_token"
+
 const (
-	HeaderAccept      = "Accept"
-	HeaderAuth        = "Authorization"
-	HeaderContentType = "Content-Type"
-	HeaderRequestID   = "Request-ID"
-	HeaderNonce       = "Wechatpay-Nonce"
-	HeaderTimestamp   = "Wechatpay-Timestamp"
-	HeaderSerial      = "Wechatpay-Serial"
-	HeaderSign        = "Wechatpay-Signature"
+	HeaderAccept                = "Accept"
+	HeaderAuthorization         = "Authorization"
+	HeaderContentType           = "Content-Type"
+	HeaderRequestID             = "Request-ID"
+	HeaderPayNonce              = "Wechatpay-Nonce"
+	HeaderPayTimestamp          = "Wechatpay-Timestamp"
+	HeaderPaySerial             = "Wechatpay-Serial"
+	HeaderPaySignature          = "Wechatpay-Signature"
+	HeaderMPAppID               = "Wechatmp-Appid"
+	HeaderMPTimestamp           = "Wechatmp-TimeStamp"
+	HeaderMPSerial              = "Wechatmp-Serial"
+	HeaderMPSignature           = "Wechatmp-Signature"
+	HeaderMPSerialDeprecated    = "Wechatmp-Serial-Deprecated"
+	HeaderMPSignatureDeprecated = "Wechatmp-Signature-Deprecated"
 )
+
+const ContentJSON = "application/json;charset=utf-8"
 
 // SignAlgo 签名算法
 type SignAlgo string
