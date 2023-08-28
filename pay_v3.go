@@ -114,7 +114,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	}
 
 	if pubkey == nil {
-		return nil, fmt.Errorf("no expect cert (%s)", serialNO)
+		return nil, fmt.Errorf("no expected cert, serialNO = %s", serialNO)
 	}
 
 	return pubkey, nil
