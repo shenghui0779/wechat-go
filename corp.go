@@ -3,6 +3,7 @@ package wechat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -288,19 +289,30 @@ func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form Up
 	return ret, nil
 }
 
-// VerifyEventSign 验证事件消息签名
-// 验证事件消息签名，使用：msg_signature、timestamp、nonce、msg_encrypt
-// 验证消息来自微信服务器，使用：msg_signature、timestamp、nonce、echostr（若验证成功，解密echostr后返回msg字段内容）
+// VerifyURL 验证消息来自微信服务器，使用：msg_signature、timestamp、nonce、echostr（若验证成功，解密echostr后返回msg字段内容）
 // [参考](https://developer.work.weixin.qq.com/document/path/90930)
-func (c *Corp) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(c.srvCfg.token, items...)
+func (c *Corp) VerifyURL(signature, timestamp, nonce, echoStr string) (string, error) {
+	if SignWithSHA1(c.srvCfg.token, timestamp, nonce, echoStr) != signature {
+		return "", errors.New("signature verified fail")
+	}
 
-	return signStr == signature
+	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, echoStr)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
 }
 
-// DecryptEventMsg 事件消息解密
-func (c *Corp) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, encrypt)
+// DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
+// [参考](https://developer.work.weixin.qq.com/document/path/90930)
+func (c *Corp) DecodeEventMsg(signature, timestamp, nonce, encryptMsg string) (V, error) {
+	if SignWithSHA1(c.srvCfg.token, timestamp, nonce, encryptMsg) != signature {
+		return nil, errors.New("signature verified fail")
+	}
+
+	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, encryptMsg)
 
 	if err != nil {
 		return nil, err

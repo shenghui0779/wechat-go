@@ -628,19 +628,24 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 	return gcm.Decrypt(data, authtag)
 }
 
-// VerifyEventSign 验证事件消息签名
-// 验证事件消息签名，使用：msg_signature、timestamp、nonce、msg_encrypt
-// 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
+// VerifyURL 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
-func (mp *MiniProgram) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(mp.srvCfg.token, items...)
+func (mp *MiniProgram) VerifyURL(signature, timestamp, nonce, echoStr string) error {
+	if SignWithSHA1(mp.srvCfg.token, timestamp, nonce) != signature {
+		return errors.New("signature verified fail")
+	}
 
-	return signStr == signature
+	return nil
 }
 
-// DecryptEventMsg 事件消息解密
-func (mp *MiniProgram) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(mp.appid, mp.srvCfg.aeskey, encrypt)
+// DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
+// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
+func (mp *MiniProgram) DecodeEventMsg(signature, timestamp, nonce, encryptMsg string) (V, error) {
+	if SignWithSHA1(mp.srvCfg.token, timestamp, nonce, encryptMsg) != signature {
+		return nil, errors.New("signature verified fail")
+	}
+
+	b, err := EventDecrypt(mp.appid, mp.srvCfg.aeskey, encryptMsg)
 
 	if err != nil {
 		return nil, err

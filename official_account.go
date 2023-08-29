@@ -3,6 +3,7 @@ package wechat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -83,7 +84,7 @@ func (oa *OfficialAccount) SubscribeMsgAuthURL(scene, templateID, redirectURL, r
 	query.Set("redirect_url", redirectURL)
 	query.Set("reserved", reserved)
 
-	return fmt.Sprintf("https://mp.weixin.qq.com/mp/subscribemsg?%s#wechat_redirect", query.Encode())
+	return fmt.Sprintf("https://oa.weixin.qq.com/oa/subscribemsg?%s#wechat_redirect", query.Encode())
 }
 
 // Code2OAuthToken 获取网页授权Token
@@ -331,19 +332,24 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 	return ret, nil
 }
 
-// VerifyEventSign 验证事件消息签名
-// 验证事件消息签名，使用：msg_signature、timestamp、nonce、msg_encrypt
-// 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
+// VerifyURL 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
-func (oa *OfficialAccount) VerifyEventSign(signature string, items ...string) bool {
-	signStr := SignWithSHA1(oa.srvCfg.token, items...)
+func (oa *OfficialAccount) VerifyURL(signature, timestamp, nonce, echoStr string) error {
+	if SignWithSHA1(oa.srvCfg.token, timestamp, nonce) != signature {
+		return errors.New("signature verified fail")
+	}
 
-	return signStr == signature
+	return nil
 }
 
-// DecryptEventMsg 事件消息解密
-func (oa *OfficialAccount) DecryptEventMsg(encrypt string) (V, error) {
-	b, err := EventDecrypt(oa.appid, oa.srvCfg.aeskey, encrypt)
+// DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
+// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
+func (oa *OfficialAccount) DecodeEventMsg(signature, timestamp, nonce, encryptMsg string) (V, error) {
+	if SignWithSHA1(oa.srvCfg.token, timestamp, nonce, encryptMsg) != signature {
+		return nil, errors.New("signature verified fail")
+	}
+
+	b, err := EventDecrypt(oa.appid, oa.srvCfg.aeskey, encryptMsg)
 
 	if err != nil {
 		return nil, err
