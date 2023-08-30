@@ -628,9 +628,9 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 	return gcm.Decrypt(data, authtag)
 }
 
-// VerifyURL 验证消息来自微信服务器，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
+// VerifyURL 服务器URL验证，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
-func (mp *MiniProgram) VerifyURL(signature, timestamp, nonce, echoStr string) error {
+func (mp *MiniProgram) VerifyURL(signature, timestamp, nonce string) error {
 	if SignWithSHA1(mp.srvCfg.token, timestamp, nonce) != signature {
 		return errors.New("signature verified fail")
 	}

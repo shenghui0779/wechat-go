@@ -289,7 +289,7 @@ func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form Up
 	return ret, nil
 }
 
-// VerifyURL 验证消息来自微信服务器，使用：msg_signature、timestamp、nonce、echostr（若验证成功，解密echostr后返回msg字段内容）
+// VerifyURL 服务器URL验证，使用：msg_signature、timestamp、nonce、echostr（若验证成功，解密echostr后返回msg字段内容）
 // [参考](https://developer.work.weixin.qq.com/document/path/90930)
 func (c *Corp) VerifyURL(signature, timestamp, nonce, echoStr string) (string, error) {
 	if SignWithSHA1(c.srvCfg.token, timestamp, nonce, echoStr) != signature {
