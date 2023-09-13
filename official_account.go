@@ -44,11 +44,9 @@ func (oa *OfficialAccount) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(oa.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -129,11 +127,9 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	defer log.Do(ctx, oa.logger)
 
 	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -144,7 +140,6 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -152,7 +147,6 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -168,7 +162,6 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 	defer log.Do(ctx, oa.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -176,11 +169,9 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 	log.SetReqBody(string(body))
 
 	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -191,7 +182,6 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -199,7 +189,6 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -215,11 +204,9 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	defer log.Do(ctx, oa.logger)
 
 	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -230,7 +217,6 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +224,6 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	log.SetReqBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -254,7 +239,6 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 	defer log.Do(ctx, oa.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -262,11 +246,9 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 	log.SetReqBody(string(body))
 
 	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -277,7 +259,6 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +266,6 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -301,11 +281,9 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 	defer log.Do(ctx, oa.logger)
 
 	resp, err := oa.client.Upload(ctx, reqURL, form)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -316,7 +294,6 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -324,7 +301,6 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -350,7 +326,6 @@ func (oa *OfficialAccount) DecodeEventMsg(signature, timestamp, nonce, encryptMs
 	}
 
 	b, err := EventDecrypt(oa.appid, oa.srvCfg.aeskey, encryptMsg)
-
 	if err != nil {
 		return nil, err
 	}

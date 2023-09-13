@@ -44,11 +44,9 @@ func (p *Pay) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(p.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -69,7 +67,6 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -77,11 +74,9 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	log.SetReqBody(string(body))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -92,7 +87,6 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +94,6 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +119,6 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +126,9 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 	log.SetReqBody(string(body))
 
 	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -149,7 +139,6 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +146,6 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +171,6 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -191,11 +178,9 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 	log.SetReqBody(string(body))
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -206,7 +191,6 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +198,6 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +220,6 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 	params.Set("sign", p.Sign(params))
 
 	body, err := FormatVToXML(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -245,11 +227,9 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 	log.SetReqBody(string(body))
 
 	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -260,7 +240,6 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +247,6 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -282,31 +260,29 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 }
 
 func (p *Pay) Sign(v V) string {
-	str := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
+	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
 
 	signType := v.Get("sign_type")
-
 	if len(signType) == 0 {
 		signType = v.Get("signType")
 	}
 
 	if len(signType) != 0 && SignAlgo(strings.ToUpper(signType)) == SignHMacSHA256 {
-		return strings.ToUpper(HMacSHA256(p.apikey, str))
+		return strings.ToUpper(HMacSHA256(p.apikey, signStr))
 	}
 
-	return strings.ToUpper(MD5(str))
+	return strings.ToUpper(MD5(signStr))
 }
 
 func (p *Pay) Verify(v V) error {
 	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
 
-	wxsign := v.Get("sign")
-
 	signType := v.Get("sign_type")
-
 	if len(signType) == 0 {
 		signType = v.Get("signType")
 	}
+
+	wxsign := v.Get("sign")
 
 	if len(signType) != 0 && SignAlgo(strings.ToUpper(signType)) == SignHMacSHA256 {
 		if sign := strings.ToUpper(HMacSHA256(p.apikey, signStr)); sign != wxsign {
@@ -326,15 +302,12 @@ func (p *Pay) Verify(v V) error {
 // DecryptRefund 退款结果通知解密
 func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 	cipherText, err := base64.StdEncoding.DecodeString(encrypt)
-
 	if err != nil {
 		return nil, err
 	}
 
 	ecb := NewAesECB([]byte(MD5(p.apikey)), AES_PKCS7)
-
 	plainText, err := ecb.Decrypt(cipherText)
-
 	if err != nil {
 		return nil, err
 	}

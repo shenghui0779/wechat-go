@@ -38,11 +38,9 @@ func (c *Corp) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(c.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -86,11 +84,9 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 	defer log.Do(ctx, c.logger)
 
 	resp, err := c.client.Do(ctx, http.MethodGet, c.URL(path, query), nil)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -101,7 +97,6 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -109,7 +104,6 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -125,7 +119,6 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 	defer log.Do(ctx, c.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -133,11 +126,9 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 	log.SetReqBody(string(body))
 
 	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -148,7 +139,6 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -156,7 +146,6 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -172,11 +161,9 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 	defer log.Do(ctx, c.logger)
 
 	resp, err := c.client.Do(ctx, http.MethodGet, reqURL, nil)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -187,7 +174,6 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +181,6 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -211,7 +196,6 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	defer log.Do(ctx, c.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -219,11 +203,9 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	log.SetReqBody(string(body))
 
 	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -234,7 +216,6 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +223,6 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -250,19 +230,17 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 	return b, nil
 }
 
-// Uplcd 上传媒体资源
-func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
+// Upload 上传媒体资源
+func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)
 
 	resp, err := c.client.Upload(ctx, reqURL, form)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -273,7 +251,6 @@ func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form Up
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -281,7 +258,6 @@ func (c *Corp) Uplcd(ctx context.Context, path string, query url.Values, form Up
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -297,7 +273,6 @@ func (c *Corp) VerifyURL(signature, timestamp, nonce, echoStr string) (string, e
 	}
 
 	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, echoStr)
-
 	if err != nil {
 		return "", err
 	}
@@ -313,7 +288,6 @@ func (c *Corp) DecodeEventMsg(signature, timestamp, nonce, encryptMsg string) (V
 	}
 
 	b, err := EventDecrypt(c.corpid, c.srvCfg.aeskey, encryptMsg)
-
 	if err != nil {
 		return nil, err
 	}

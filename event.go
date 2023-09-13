@@ -14,7 +14,6 @@ import (
 // SignWithSHA1 事件消息sha1签名
 func SignWithSHA1(token string, items ...string) string {
 	items = append(items, token)
-
 	sort.Strings(items)
 
 	h := sha1.New()
@@ -30,7 +29,6 @@ func SignWithSHA1(token string, items ...string) string {
 // [参考](https://developer.work.weixin.qq.com/document/path/90968)
 func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(encodingAESKey + "=")
-
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +45,6 @@ func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]
 
 	cbc := NewAesCBC(key, key[:aes.BlockSize], AES_PKCS7)
 	cipherText, err := cbc.Encrypt(encryptData)
-
 	if err != nil {
 		return nil, err
 	}
@@ -59,20 +56,17 @@ func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]
 // [参考](https://developer.work.weixin.qq.com/document/path/90968)
 func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(encodingAESKey + "=")
-
 	if err != nil {
 		return nil, err
 	}
 
 	decryptData, err := base64.StdEncoding.DecodeString(cipherText)
-
 	if err != nil {
 		return nil, err
 	}
 
 	cbc := NewAesCBC(key, key[:aes.BlockSize], AES_PKCS7)
 	plainText, err := cbc.Decrypt(decryptData)
-
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +83,6 @@ func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) 
 
 func EventReply(receiveID, token, encodingAESKey string, msg V) (V, error) {
 	str, err := FormatVToXML(msg)
-
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +91,6 @@ func EventReply(receiveID, token, encodingAESKey string, msg V) (V, error) {
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	b, err := EventEncrypt(receiveID, encodingAESKey, nonce, []byte(str))
-
 	if err != nil {
 		return nil, err
 	}

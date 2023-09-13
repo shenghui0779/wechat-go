@@ -52,11 +52,9 @@ func (mp *MiniProgram) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(mp.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -98,11 +96,9 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	defer log.Do(ctx, mp.logger)
 
 	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -113,7 +109,6 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -121,7 +116,6 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -137,7 +131,6 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 	defer log.Do(ctx, mp.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -145,7 +138,6 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 	log.SetReqBody(string(body))
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return fail(err)
 	}
@@ -160,7 +152,6 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -168,7 +159,6 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -187,13 +177,11 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 
 	// 加密
 	params, err := mp.encrypt(log, path, query, params, now)
-
 	if err != nil {
 		return fail(err)
 	}
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -202,7 +190,6 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 
 	// 签名
 	sign, err := mp.sign(path, now, body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -217,7 +204,6 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 	log.SetReqHeader(reqHeader)
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -232,7 +218,6 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -246,7 +231,6 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 
 	// 解密
 	data, err := mp.decrypt(b)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -254,7 +238,6 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 	log.Set("origin_response_body", string(data))
 
 	ret := gjson.ParseBytes(data)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -270,11 +253,9 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	defer log.Do(ctx, mp.logger)
 
 	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -285,7 +266,6 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +273,6 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -309,7 +288,6 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 	defer log.Do(ctx, mp.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +295,6 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 	log.SetReqBody(string(body))
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +309,6 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +316,6 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -359,13 +334,11 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 
 	// 加密
 	params, err := mp.encrypt(log, path, query, params, now)
-
 	if err != nil {
 		return nil, err
 	}
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +347,6 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 
 	// 签名
 	sign, err := mp.sign(path, now, body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -389,11 +361,9 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 	log.SetReqHeader(reqHeader)
 
 	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -404,7 +374,6 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +387,6 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 
 	// 解密
 	data, err := mp.decrypt(b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +394,6 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 	log.Set("origin_response_body", string(data))
 
 	ret := gjson.ParseBytes(data)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return nil, fmt.Errorf("%d | %s", code, ret.Get("errmsg").String())
 	}
@@ -442,7 +409,6 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	defer log.Do(ctx, mp.logger)
 
 	resp, err := mp.client.Upload(ctx, reqURL, form)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -457,7 +423,6 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -465,7 +430,6 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
-
 	if code := ret.Get("errcode").Int(); code != 0 {
 		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
 	}
@@ -493,7 +457,6 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 	}
 
 	data, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +464,6 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 	log.Set("origin_request_body", string(data))
 
 	key, err := base64.StdEncoding.DecodeString(mp.sfMode.aeskey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -509,10 +471,7 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 	iv := NonceByte(12)
 	authtag := fmt.Sprintf("%s|%s|%d|%s", mp.URL(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
 
-	gcm := NewAesGCM(key, iv)
-
-	b, err := gcm.Encrypt(data, []byte(authtag))
-
+	b, err := NewAesGCM(key, iv).Encrypt(data, []byte(authtag))
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +501,6 @@ func (mp *MiniProgram) sign(path string, timestamp int64, body []byte) (string, 
 	builder.Write(body)
 
 	sign, err := mp.sfMode.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
-
 	if err != nil {
 		return "", err
 	}
@@ -574,7 +532,6 @@ func (mp *MiniProgram) verify(path string, header http.Header, body []byte) erro
 	}
 
 	b, err := base64.StdEncoding.DecodeString(sign)
-
 	if err != nil {
 		return err
 	}
@@ -598,7 +555,6 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 	}
 
 	key, err := base64.StdEncoding.DecodeString(mp.sfMode.aeskey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -606,26 +562,21 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 	ret := gjson.ParseBytes(body)
 
 	iv, err := base64.StdEncoding.DecodeString(ret.Get("iv").String())
-
 	if err != nil {
 		return nil, err
 	}
 
 	data, err := base64.StdEncoding.DecodeString(ret.Get("data").String())
-
 	if err != nil {
 		return nil, err
 	}
 
 	authtag, err := base64.StdEncoding.DecodeString(ret.Get("authtag").String())
-
 	if err != nil {
 		return nil, err
 	}
 
-	gcm := NewAesGCM(key, iv)
-
-	return gcm.Decrypt(data, authtag)
+	return NewAesGCM(key, iv).Decrypt(data, authtag)
 }
 
 // VerifyURL 服务器URL验证，使用：signature、timestamp、nonce（若验证成功，请原样返回echostr参数内容）
@@ -646,7 +597,6 @@ func (mp *MiniProgram) DecodeEventMsg(signature, timestamp, nonce, encryptMsg st
 	}
 
 	b, err := EventDecrypt(mp.appid, mp.srvCfg.aeskey, encryptMsg)
-
 	if err != nil {
 		return nil, err
 	}

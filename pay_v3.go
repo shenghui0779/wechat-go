@@ -52,11 +52,9 @@ func (p *PayV3) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(p.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -81,7 +79,6 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 	}
 
 	ret, err := p.httpCerts(ctx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -93,19 +90,16 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 
 		gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
 		block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
-
 		if err != nil {
 			return nil, err
 		}
 
 		key, err := NewPublicKeyFromDerBlock(block)
-
 		if err != nil {
 			return nil, err
 		}
 
 		certNO := cert.Get("serial_no").String()
-
 		if certNO != serialNO {
 			pubkey = key
 		}
@@ -127,7 +121,6 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	defer log.Do(ctx, p.logger)
 
 	authStr, err := p.Authorization(http.MethodGet, "/v3/certificates", nil, "")
-
 	if err != nil {
 		return fail(err)
 	}
@@ -135,7 +128,6 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	log.Set(HeaderAuthorization, authStr)
 
 	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuthorization, authStr))
-
 	if err != nil {
 		return fail(err)
 	}
@@ -146,7 +138,6 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -168,13 +159,11 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 
 			gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
 			block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
-
 			if err != nil {
 				return fail(err)
 			}
 
 			key, err := NewPublicKeyFromDerBlock(block)
-
 			if err != nil {
 				return fail(err)
 			}
@@ -212,7 +201,6 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*AP
 	defer log.Do(ctx, p.logger)
 
 	authStr, err := p.Authorization(http.MethodGet, path, query, "")
-
 	if err != nil {
 		return nil, err
 	}
@@ -223,18 +211,15 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*AP
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderAuthorization, authStr),
 	)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +247,6 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 	defer log.Do(ctx, p.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +254,6 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 	log.SetReqBody(string(body))
 
 	authStr, err := p.Authorization(http.MethodPost, path, nil, string(body))
-
 	if err != nil {
 		return nil, err
 	}
@@ -282,18 +265,15 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 		WithHTTPHeader(HeaderAuthorization, authStr),
 		WithHTTPHeader(HeaderContentType, ContentJSON),
 	)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +301,6 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIR
 	defer log.Do(ctx, p.logger)
 
 	authStr, err := p.Authorization(http.MethodPost, path, nil, form.Field("meta"))
-
 	if err != nil {
 		return nil, err
 	}
@@ -329,18 +308,15 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIR
 	log.Set(HeaderAuthorization, authStr)
 
 	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +343,6 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 
 	// 获取 download_url
 	authStr, err := p.Authorization(http.MethodGet, downloadURL, nil, "")
-
 	if err != nil {
 		return err
 	}
@@ -375,7 +350,6 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 	log.Set(HeaderAuthorization, authStr)
 
 	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
-
 	if err != nil {
 		return err
 	}
@@ -404,26 +378,21 @@ func (p *PayV3) Authorization(method, path string, query url.Values, body string
 	builder.WriteString(method)
 	builder.WriteString("\n")
 	builder.WriteString(path)
-
 	if len(query) != 0 {
 		builder.WriteString("?")
 		builder.WriteString(query.Encode())
 	}
-
 	builder.WriteString("\n")
 	builder.WriteString(timestamp)
 	builder.WriteString("\n")
 	builder.WriteString(nonce)
 	builder.WriteString("\n")
-
 	if len(body) != 0 {
 		builder.WriteString(body)
 	}
-
 	builder.WriteString("\n")
 
 	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
-
 	if err != nil {
 		return "", err
 	}
@@ -441,7 +410,6 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 	sign := header.Get(HeaderPaySignature)
 
 	key, err := p.publicKey(ctx, serial)
-
 	if err != nil {
 		return err
 	}
@@ -452,11 +420,9 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 	builder.WriteString("\n")
 	builder.WriteString(nonce)
 	builder.WriteString("\n")
-
 	if len(body) != 0 {
 		builder.Write(body)
 	}
-
 	builder.WriteString("\n")
 
 	return key.Verify(crypto.SHA256, []byte(builder.String()), []byte(sign))
@@ -488,7 +454,6 @@ func (p *PayV3) APPAPI(prepayID string) (V, error) {
 	builder.WriteString("\n")
 
 	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
-
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +488,6 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 	builder.WriteString("\n")
 
 	sign, err := p.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
-
 	if err != nil {
 		return nil, err
 	}

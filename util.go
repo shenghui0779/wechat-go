@@ -144,25 +144,21 @@ func LoadCertFromPfxFile(pfxFile, password string) (tls.Certificate, error) {
 	fail := func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
 
 	certPath, err := filepath.Abs(filepath.Clean(pfxFile))
-
 	if err != nil {
 		return fail(err)
 	}
 
 	pfxData, err := os.ReadFile(certPath)
-
 	if err != nil {
 		return fail(err)
 	}
 
 	blocks, err := pkcs12.ToPEM(pfxData, password)
-
 	if err != nil {
 		return fail(err)
 	}
 
 	pemData := make([]byte, 0)
-
 	for _, b := range blocks {
 		pemData = append(pemData, pem.EncodeToMemory(b)...)
 	}
