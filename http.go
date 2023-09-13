@@ -85,7 +85,6 @@ func (form *uploadform) Write(w *multipart.Writer) error {
 
 	for _, v := range form.files {
 		part, err := w.CreateFormFile(v.fieldname, v.filename)
-
 		if err != nil {
 			return err
 		}
