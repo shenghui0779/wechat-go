@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestM(t *testing.T) {
+func TestV(t *testing.T) {
 	v1 := V{}
 
 	v1.Set("bar", "baz")
