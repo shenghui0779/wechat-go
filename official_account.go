@@ -341,9 +341,9 @@ func (oa *OfficialAccount) ReplyEventMsg(msg V) (V, error) {
 // OAOption 公众号设置项
 type OAOption func(oa *OfficialAccount)
 
-// WithOAServerConfig 设置公众号服务器配置
+// WithOASrvCfg 设置公众号服务器配置
 // [参考](https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html)
-func WithOAServerConfig(token, aeskey string) OAOption {
+func WithOASrvCfg(token, aeskey string) OAOption {
 	return func(oa *OfficialAccount) {
 		oa.srvCfg.token = token
 		oa.srvCfg.aeskey = aeskey

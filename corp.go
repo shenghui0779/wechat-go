@@ -303,9 +303,9 @@ func (c *Corp) ReplyEventMsg(msg V) (V, error) {
 // CorpOption 企业微信设置项
 type CorpOption func(c *Corp)
 
-// WithCorpServerConfig 设置企业微信服务器配置
+// WithCorpSrvCfg 设置企业微信服务器配置
 // [参考](https://developer.work.weixin.qq.com/document/path/90968)
-func WithCorpServerConfig(token, aeskey string) CorpOption {
+func WithCorpSrvCfg(token, aeskey string) CorpOption {
 	return func(c *Corp) {
 		c.srvCfg.token = token
 		c.srvCfg.aeskey = aeskey

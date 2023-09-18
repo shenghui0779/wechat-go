@@ -612,9 +612,9 @@ func (mp *MiniProgram) ReplyEventMsg(msg V) (V, error) {
 // MPOption 小程序设置项
 type MPOption func(mp *MiniProgram)
 
-// WithServerConfig 设置小程序服务器配置
+// WithMPSrvCfg 设置小程序服务器配置
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/server-ability/message-push.html)
-func WithMPServerConfig(token, aeskey string) MPOption {
+func WithMPSrvCfg(token, aeskey string) MPOption {
 	return func(mp *MiniProgram) {
 		mp.srvCfg.token = token
 		mp.srvCfg.aeskey = aeskey
@@ -628,8 +628,15 @@ func WithMPClient(c *http.Client) MPOption {
 	}
 }
 
+// WithMPLogger 设置小程序日志记录
+func WithMPLogger(f func(ctx context.Context, data map[string]string)) MPOption {
+	return func(mp *MiniProgram) {
+		mp.logger = f
+	}
+}
+
 // WithMPAesKey 设置小程序 AES-GCM 加密Key
-func (mp *MiniProgram) WithMPAesKey(serialNO, key string) MPOption {
+func WithMPAesKey(serialNO, key string) MPOption {
 	return func(mp *MiniProgram) {
 		mp.sfMode.aesSN = serialNO
 		mp.sfMode.aeskey = key
@@ -637,24 +644,17 @@ func (mp *MiniProgram) WithMPAesKey(serialNO, key string) MPOption {
 }
 
 // WithMPPrivateKey 设置小程序RSA私钥
-func (mp *MiniProgram) WithPrivateKey(key *PrivateKey) MPOption {
+func WithMPPrivateKey(key *PrivateKey) MPOption {
 	return func(mp *MiniProgram) {
 		mp.sfMode.prvKey = key
 	}
 }
 
-// SetMPPublicKey 设置小程序平台RSA公钥
-func (mp *MiniProgram) SetPublicKey(serialNO string, key *PublicKey) MPOption {
+// WithMPPublicKey 设置小程序平台RSA公钥
+func WithMPPublicKey(serialNO string, key *PublicKey) MPOption {
 	return func(mp *MiniProgram) {
 		mp.sfMode.pubSN = serialNO
 		mp.sfMode.pubKey = key
-	}
-}
-
-// WithMPLogger 设置小程序日志记录
-func WithMPLogger(f func(ctx context.Context, data map[string]string)) MPOption {
-	return func(mp *MiniProgram) {
-		mp.logger = f
 	}
 }
 
