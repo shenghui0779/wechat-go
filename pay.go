@@ -381,8 +381,8 @@ func WithPayTLSCli(c *http.Client) PayOption {
 	}
 }
 
-// WithLogger 设置支付日志记录
-func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) PayOption {
+// WithPayLogger 设置支付日志记录
+func WithPayLogger(f func(ctx context.Context, data map[string]string)) PayOption {
 	return func(p *Pay) {
 		p.logger = f
 	}
