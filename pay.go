@@ -17,7 +17,6 @@ import (
 type Pay struct {
 	host    string
 	mchid   string
-	appid   string
 	apikey  string
 	httpCli HTTPClient
 	tlsCli  HTTPClient
@@ -26,11 +25,6 @@ type Pay struct {
 
 // MchID 返回mchid
 func (p *Pay) MchID() string {
-	return p.mchid
-}
-
-// AppID 返回appid
-func (p *Pay) AppID() string {
 	return p.mchid
 }
 
@@ -316,10 +310,10 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 }
 
 // APPAPI 用于APP拉起支付
-func (p *Pay) APPAPI(prepayID string) V {
+func (p *Pay) APPAPI(appid, prepayID string) V {
 	v := V{}
 
-	v.Set("appid", p.appid)
+	v.Set("appid", appid)
 	v.Set("partnerid", p.mchid)
 	v.Set("prepayid", prepayID)
 	v.Set("package", "Sign=WXPay")
@@ -332,10 +326,10 @@ func (p *Pay) APPAPI(prepayID string) V {
 }
 
 // JSAPI 用于JS拉起支付
-func (p *Pay) JSAPI(prepayID string) V {
+func (p *Pay) JSAPI(appid, prepayID string) V {
 	v := V{}
 
-	v.Set("appId", p.appid)
+	v.Set("appId", appid)
 	v.Set("nonceStr", Nonce(16))
 	v.Set("package", "prepay_id="+prepayID)
 	v.Set("signType", "MD5")
@@ -347,16 +341,16 @@ func (p *Pay) JSAPI(prepayID string) V {
 }
 
 // MinipRedpackJSAPI 小程序领取红包
-func (p *Pay) MinipRedpackJSAPI(pkg string) V {
+func (p *Pay) MinipRedpackJSAPI(appid, pkg string) V {
 	v := V{}
 
-	v.Set("appId", p.appid)
+	v.Set("appId", appid)
 	v.Set("nonceStr", Nonce(16))
 	v.Set("package", url.QueryEscape(pkg))
 	v.Set("timeStamp", strconv.FormatInt(time.Now().Unix(), 10))
 	v.Set("signType", "MD5")
 
-	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", p.appid, v.Get("nonceStr"), v.Get("package"), v.Get("timeStamp"), p.apikey)
+	signStr := fmt.Sprintf("appId=%s&nonceStr=%s&package=%s&timeStamp=%s&key=%s", appid, v.Get("nonceStr"), v.Get("package"), v.Get("timeStamp"), p.apikey)
 
 	v.Set("paySign", MD5(signStr))
 
@@ -395,11 +389,10 @@ func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) Pa
 }
 
 // NewPay 生成一个微信支付实例
-func NewPay(mchid, appid, apikey string, options ...PayOption) *Pay {
+func NewPay(mchid, apikey string, options ...PayOption) *Pay {
 	pay := &Pay{
 		host:    "https://api.mch.weixin.qq.com",
 		mchid:   mchid,
-		appid:   appid,
 		apikey:  apikey,
 		httpCli: NewDefaultHTTPClient(),
 		tlsCli:  NewDefaultHTTPClient(),

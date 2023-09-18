@@ -22,7 +22,6 @@ import (
 type PayV3 struct {
 	host    string
 	mchid   string
-	appid   string
 	apikey  string
 	prvSN   string
 	prvKey  *PrivateKey
@@ -429,13 +428,13 @@ func (p *PayV3) Verify(ctx context.Context, header http.Header, body []byte) err
 }
 
 // APPAPI 用于APP拉起支付
-func (p *PayV3) APPAPI(prepayID string) (V, error) {
+func (p *PayV3) APPAPI(appid, prepayID string) (V, error) {
 	nonce := Nonce(32)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	v := V{}
 
-	v.Set("appid", p.appid)
+	v.Set("appid", appid)
 	v.Set("partnerid", p.mchid)
 	v.Set("prepayid", prepayID)
 	v.Set("package", "Sign=WXPay")
@@ -444,7 +443,7 @@ func (p *PayV3) APPAPI(prepayID string) (V, error) {
 
 	var builder strings.Builder
 
-	builder.WriteString(p.appid)
+	builder.WriteString(appid)
 	builder.WriteString("\n")
 	builder.WriteString(timestamp)
 	builder.WriteString("\n")
@@ -464,13 +463,13 @@ func (p *PayV3) APPAPI(prepayID string) (V, error) {
 }
 
 // JSAPI 用于JS拉起支付
-func (p *PayV3) JSAPI(prepayID string) (V, error) {
+func (p *PayV3) JSAPI(appid, prepayID string) (V, error) {
 	nonce := Nonce(32)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	v := V{}
 
-	v.Set("appId", p.appid)
+	v.Set("appId", appid)
 	v.Set("nonceStr", nonce)
 	v.Set("package", "prepay_id="+prepayID)
 	v.Set("signType", "RSA")
@@ -478,7 +477,7 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 
 	var builder strings.Builder
 
-	builder.WriteString(p.appid)
+	builder.WriteString(appid)
 	builder.WriteString("\n")
 	builder.WriteString(timestamp)
 	builder.WriteString("\n")
@@ -523,11 +522,10 @@ func WithPayV3Logger(f func(ctx context.Context, data map[string]string)) PayV3O
 }
 
 // NewPayV3 生成一个微信支付(v3)实例
-func NewPayV3(mchid, appid, apikey string, options ...PayV3Option) *PayV3 {
+func NewPayV3(mchid, apikey string, options ...PayV3Option) *PayV3 {
 	pay := &PayV3{
 		host:    "https://api.mch.weixin.qq.com",
 		mchid:   mchid,
-		appid:   appid,
 		apikey:  apikey,
 		httpCli: NewDefaultHTTPClient(),
 	}
