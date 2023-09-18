@@ -27,7 +27,7 @@ type PayV3 struct {
 	prvSN   string
 	prvKey  *PrivateKey
 	pubKeyM sync.Map
-	client  HTTPClient
+	httpCli HTTPClient
 	mutex   sync.Mutex
 	logger  func(ctx context.Context, data map[string]string)
 }
@@ -127,7 +127,7 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuthorization, authStr))
+	resp, err := p.httpCli.Do(ctx, http.MethodGet, reqURL, nil, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuthorization, authStr))
 	if err != nil {
 		return fail(err)
 	}
@@ -207,7 +207,7 @@ func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*AP
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, reqURL, nil,
+	resp, err := p.httpCli.Do(ctx, http.MethodGet, reqURL, nil,
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderAuthorization, authStr),
 	)
@@ -260,7 +260,7 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, body,
+	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, body,
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderAuthorization, authStr),
 		WithHTTPHeader(HeaderContentType, ContentJSON),
@@ -307,7 +307,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIR
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
+	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +349,7 @@ func (p *PayV3) Download(ctx context.Context, downloadURL string, w io.Writer) e
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.client.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
+	resp, err := p.httpCli.Do(ctx, http.MethodGet, downloadURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
 	if err != nil {
 		return err
 	}
@@ -500,10 +500,10 @@ func (p *PayV3) JSAPI(prepayID string) (V, error) {
 // PayV3Option 微信支付(v3)设置项
 type PayV3Option func(p *PayV3)
 
-// SetHTTPClient 设置支付(v3)请求的 HTTP Client
-func WithPayV3Client(c *http.Client) PayV3Option {
+// WithPayV3HttpCli 设置支付(v3)请求的 HTTP Client
+func WithPayV3HttpCli(c *http.Client) PayV3Option {
 	return func(p *PayV3) {
-		p.client = NewHTTPClient(c)
+		p.httpCli = NewHTTPClient(c)
 	}
 }
 
@@ -525,11 +525,11 @@ func WithPayV3Logger(f func(ctx context.Context, data map[string]string)) PayV3O
 // NewPayV3 生成一个微信支付(v3)实例
 func NewPayV3(mchid, appid, apikey string, options ...PayV3Option) *PayV3 {
 	pay := &PayV3{
-		host:   "https://api.mch.weixin.qq.com",
-		mchid:  mchid,
-		appid:  appid,
-		apikey: apikey,
-		client: NewDefaultClient(),
+		host:    "https://api.mch.weixin.qq.com",
+		mchid:   mchid,
+		appid:   appid,
+		apikey:  apikey,
+		httpCli: NewDefaultClient(),
 	}
 
 	for _, f := range options {

@@ -15,12 +15,12 @@ import (
 
 // Corp 企业微信
 type Corp struct {
-	host   string
-	corpid string
-	secret string
-	srvCfg *ServerConfig
-	client HTTPClient
-	logger func(ctx context.Context, data map[string]string)
+	host    string
+	corpid  string
+	secret  string
+	srvCfg  *ServerConfig
+	httpCli HTTPClient
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // AppID 返回AppID
@@ -83,7 +83,7 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	resp, err := c.client.Do(ctx, http.MethodGet, c.URL(path, query), nil)
+	resp, err := c.httpCli.Do(ctx, http.MethodGet, c.URL(path, query), nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -125,7 +125,7 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 
 	log.SetReqBody(string(body))
 
-	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return fail(err)
 	}
@@ -160,7 +160,7 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	resp, err := c.client.Do(ctx, http.MethodGet, reqURL, nil)
+	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 
 	log.SetReqBody(string(body))
 
-	resp, err := c.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form U
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	resp, err := c.client.Upload(ctx, reqURL, form)
+	resp, err := c.httpCli.Upload(ctx, reqURL, form)
 	if err != nil {
 		return fail(err)
 	}
@@ -312,10 +312,10 @@ func WithCorpSrvCfg(token, aeskey string) CorpOption {
 	}
 }
 
-// WithCorpClient 设置企业微信请求的 HTTP Client
-func WithCorpClient(cli *http.Client) CorpOption {
+// WithCorpHttpCli 设置企业微信请求的 HTTP Client
+func WithCorpHttpCli(cli *http.Client) CorpOption {
 	return func(c *Corp) {
-		c.client = NewHTTPClient(cli)
+		c.httpCli = NewHTTPClient(cli)
 	}
 }
 
@@ -329,11 +329,11 @@ func WithCorpLogger(f func(ctx context.Context, data map[string]string)) CorpOpt
 // NewCorp 生成一个企业微信实例
 func NewCorp(corpid, secret string, options ...CorpOption) *Corp {
 	c := &Corp{
-		host:   "https://qyapi.weixin.qq.com",
-		corpid: corpid,
-		secret: secret,
-		srvCfg: new(ServerConfig),
-		client: NewDefaultClient(),
+		host:    "https://qyapi.weixin.qq.com",
+		corpid:  corpid,
+		secret:  secret,
+		srvCfg:  new(ServerConfig),
+		httpCli: NewDefaultClient(),
 	}
 
 	for _, f := range options {

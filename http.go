@@ -150,7 +150,7 @@ type HTTPClient interface {
 }
 
 type httpclient struct {
-	client *http.Client
+	httpCli *http.Client
 }
 
 func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
@@ -185,7 +185,7 @@ func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte,
 		req.Close = true
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.httpCli.Do(req)
 	if err != nil {
 		// If the context has been canceled, the context's error is probably more useful.
 		select {
@@ -220,16 +220,16 @@ func (c *httpclient) Upload(ctx context.Context, reqURL string, form UploadForm,
 }
 
 // NewHTTPClient 通过官方 `http.Client` 生成一个HTTP客户端
-func NewHTTPClient(client *http.Client) HTTPClient {
+func NewHTTPClient(httpCli *http.Client) HTTPClient {
 	return &httpclient{
-		client: client,
+		httpCli: httpCli,
 	}
 }
 
 // NewDefaultHTTPClient 生成一个默认的HTTP客户端
 func NewDefaultClient(certs ...tls.Certificate) HTTPClient {
 	return &httpclient{
-		client: &http.Client{
+		httpCli: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
@@ -251,7 +251,7 @@ func NewDefaultClient(certs ...tls.Certificate) HTTPClient {
 	}
 }
 
-// defaultHTTPClient default http client
+// defaultHTTPClient default http httpCli
 var defaultHTTPClient = NewDefaultClient()
 
 // HTTPGet 发送GET请求

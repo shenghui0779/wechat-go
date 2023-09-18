@@ -28,13 +28,13 @@ type SafeMode struct {
 
 // MiniProgram 小程序
 type MiniProgram struct {
-	host   string
-	appid  string
-	secret string
-	srvCfg *ServerConfig
-	sfMode *SafeMode
-	client HTTPClient
-	logger func(ctx context.Context, data map[string]string)
+	host    string
+	appid   string
+	secret  string
+	srvCfg  *ServerConfig
+	sfMode  *SafeMode
+	httpCli HTTPClient
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // AppID 返回AppID
@@ -95,7 +95,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
+	resp, err := mp.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -137,7 +137,7 @@ func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Valu
 
 	log.SetReqBody(string(body))
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return fail(err)
 	}
@@ -203,7 +203,7 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, path string, query url.
 
 	log.SetReqHeader(reqHeader)
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
+	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
 	if err != nil {
 		return fail(err)
 	}
@@ -252,7 +252,7 @@ func (mp *MiniProgram) GetBuffer(ctx context.Context, path string, query url.Val
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Do(ctx, http.MethodGet, reqURL, nil)
+	resp, err := mp.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, path string, query url.Va
 
 	log.SetReqBody(string(body))
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ func (mp *MiniProgram) SafePostBuffer(ctx context.Context, path string, query ur
 
 	log.SetReqHeader(reqHeader)
 
-	resp, err := mp.client.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
+	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (mp *MiniProgram) Upload(ctx context.Context, path string, query url.Values
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.client.Upload(ctx, reqURL, form)
+	resp, err := mp.httpCli.Upload(ctx, reqURL, form)
 	if err != nil {
 		return fail(err)
 	}
@@ -621,10 +621,10 @@ func WithMPSrvCfg(token, aeskey string) MPOption {
 	}
 }
 
-// WithMPClient 设置小程序请求的 HTTP Client
-func WithMPClient(c *http.Client) MPOption {
+// WithMPHttpCli 设置小程序请求的 HTTP Client
+func WithMPHttpCli(c *http.Client) MPOption {
 	return func(mp *MiniProgram) {
-		mp.client = NewHTTPClient(c)
+		mp.httpCli = NewHTTPClient(c)
 	}
 }
 
@@ -661,11 +661,11 @@ func WithMPPublicKey(serialNO string, key *PublicKey) MPOption {
 // NewMiniProgram 生成一个小程序实例
 func NewMiniProgram(appid, secret string, options ...MPOption) *MiniProgram {
 	mp := &MiniProgram{
-		host:   "https://api.weixin.qq.com",
-		appid:  appid,
-		secret: secret,
-		srvCfg: new(ServerConfig),
-		client: NewDefaultClient(),
+		host:    "https://api.weixin.qq.com",
+		appid:   appid,
+		secret:  secret,
+		srvCfg:  new(ServerConfig),
+		httpCli: NewDefaultClient(),
 	}
 
 	for _, f := range options {

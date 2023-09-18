@@ -21,12 +21,12 @@ type ServerConfig struct {
 
 // OfficialAccount 微信公众号
 type OfficialAccount struct {
-	host   string
-	appid  string
-	secret string
-	srvCfg *ServerConfig
-	client HTTPClient
-	logger func(ctx context.Context, data map[string]string)
+	host    string
+	appid   string
+	secret  string
+	srvCfg  *ServerConfig
+	httpCli HTTPClient
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // AppID returns appid
@@ -126,7 +126,7 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
+	resp, err := oa.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -168,7 +168,7 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 
 	log.SetReqBody(string(body))
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := oa.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return fail(err)
 	}
@@ -203,7 +203,7 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Do(ctx, http.MethodGet, reqURL, nil)
+	resp, err := oa.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 
 	log.SetReqBody(string(body))
 
-	resp, err := oa.client.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
+	resp, err := oa.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Va
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, oa.logger)
 
-	resp, err := oa.client.Upload(ctx, reqURL, form)
+	resp, err := oa.httpCli.Upload(ctx, reqURL, form)
 	if err != nil {
 		return fail(err)
 	}
@@ -350,10 +350,10 @@ func WithOASrvCfg(token, aeskey string) OAOption {
 	}
 }
 
-// WithOAClient 设置公众号请求的 HTTP Client
-func WithOAClient(c *http.Client) OAOption {
+// WithOAHttpCli 设置公众号请求的 HTTP Client
+func WithOAHttpCli(c *http.Client) OAOption {
 	return func(oa *OfficialAccount) {
-		oa.client = NewHTTPClient(c)
+		oa.httpCli = NewHTTPClient(c)
 	}
 }
 
@@ -367,11 +367,11 @@ func WithOALogger(f func(ctx context.Context, data map[string]string)) OAOption 
 // NewOfficialAccount 生成一个公众号实例
 func NewOfficialAccount(appid, secret string, options ...OAOption) *OfficialAccount {
 	oa := &OfficialAccount{
-		host:   "https://api.weixin.qq.com",
-		appid:  appid,
-		secret: secret,
-		srvCfg: new(ServerConfig),
-		client: NewDefaultClient(),
+		host:    "https://api.weixin.qq.com",
+		appid:   appid,
+		secret:  secret,
+		srvCfg:  new(ServerConfig),
+		httpCli: NewDefaultClient(),
 	}
 
 	for _, f := range options {

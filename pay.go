@@ -15,13 +15,13 @@ import (
 
 // Pay 微信支付
 type Pay struct {
-	host   string
-	mchid  string
-	appid  string
-	apikey string
-	client HTTPClient
-	tlscli HTTPClient
-	logger func(ctx context.Context, data map[string]string)
+	host    string
+	mchid   string
+	appid   string
+	apikey  string
+	httpCli HTTPClient
+	tlsCli  HTTPClient
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // MchID 返回mchid
@@ -73,7 +73,7 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 
 	log.SetReqBody(string(body))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
+	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 
 	log.SetReqBody(string(body))
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
+	resp, err := p.tlsCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 
 	log.SetReqBody(string(body))
 
-	resp, err := p.client.Do(ctx, http.MethodPost, reqURL, []byte(body))
+	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 
 	log.SetReqBody(string(body))
 
-	resp, err := p.tlscli.Do(ctx, http.MethodPost, reqURL, []byte(body))
+	resp, err := p.tlsCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
 	if err != nil {
 		return nil, err
 	}
@@ -366,24 +366,24 @@ func (p *Pay) MinipRedpackJSAPI(pkg string) V {
 // PayOption 微信支付设置项
 type PayOption func(p *Pay)
 
-// WithTLSCert 设置支付TLS证书
-func WithTLSCert(cert tls.Certificate) PayOption {
+// WithPayTLSCert 设置支付TLS证书
+func WithPayTLSCert(cert tls.Certificate) PayOption {
 	return func(p *Pay) {
-		p.tlscli = NewDefaultClient(cert)
+		p.tlsCli = NewDefaultClient(cert)
 	}
 }
 
-// SetHTTPClient 设置支付无证书 HTTP Client
-func (p *Pay) SetHTTPClient(c *http.Client) PayOption {
+// WithPayHttpCli 设置支付无证书 HTTP Client
+func WithPayHttpCli(c *http.Client) PayOption {
 	return func(p *Pay) {
-		p.client = NewHTTPClient(c)
+		p.httpCli = NewHTTPClient(c)
 	}
 }
 
-// SetTLSClient 设置支付带证书 HTTP Client
-func (p *Pay) SetTLSClient(c *http.Client) PayOption {
+// WithPayTLSCli 设置支付带证书 HTTP Client
+func WithPayTLSCli(c *http.Client) PayOption {
 	return func(p *Pay) {
-		p.tlscli = NewHTTPClient(c)
+		p.tlsCli = NewHTTPClient(c)
 	}
 }
 
@@ -397,10 +397,12 @@ func (p *Pay) WithLogger(f func(ctx context.Context, data map[string]string)) Pa
 // NewPay 生成一个微信支付实例
 func NewPay(mchid, appid, apikey string, options ...PayOption) *Pay {
 	pay := &Pay{
-		host:   "https://api.mch.weixin.qq.com",
-		mchid:  mchid,
-		appid:  appid,
-		apikey: apikey,
+		host:    "https://api.mch.weixin.qq.com",
+		mchid:   mchid,
+		appid:   appid,
+		apikey:  apikey,
+		httpCli: NewDefaultClient(),
+		tlsCli:  NewDefaultClient(),
 	}
 
 	for _, f := range options {
