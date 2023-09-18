@@ -369,7 +369,7 @@ type PayOption func(p *Pay)
 // WithPayTLSCert 设置支付TLS证书
 func WithPayTLSCert(cert tls.Certificate) PayOption {
 	return func(p *Pay) {
-		p.tlsCli = NewDefaultClient(cert)
+		p.tlsCli = NewDefaultHTTPClient(cert)
 	}
 }
 
@@ -401,8 +401,8 @@ func NewPay(mchid, appid, apikey string, options ...PayOption) *Pay {
 		mchid:   mchid,
 		appid:   appid,
 		apikey:  apikey,
-		httpCli: NewDefaultClient(),
-		tlsCli:  NewDefaultClient(),
+		httpCli: NewDefaultHTTPClient(),
+		tlsCli:  NewDefaultHTTPClient(),
 	}
 
 	for _, f := range options {

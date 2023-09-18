@@ -371,7 +371,7 @@ func NewOfficialAccount(appid, secret string, options ...OAOption) *OfficialAcco
 		appid:   appid,
 		secret:  secret,
 		srvCfg:  new(ServerConfig),
-		httpCli: NewDefaultClient(),
+		httpCli: NewDefaultHTTPClient(),
 	}
 
 	for _, f := range options {

@@ -333,7 +333,7 @@ func NewCorp(corpid, secret string, options ...CorpOption) *Corp {
 		corpid:  corpid,
 		secret:  secret,
 		srvCfg:  new(ServerConfig),
-		httpCli: NewDefaultClient(),
+		httpCli: NewDefaultHTTPClient(),
 	}
 
 	for _, f := range options {

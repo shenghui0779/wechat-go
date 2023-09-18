@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -149,11 +148,11 @@ type HTTPClient interface {
 	Upload(ctx context.Context, reqURL string, form UploadForm, options ...HTTPOption) (*http.Response, error)
 }
 
-type httpclient struct {
-	httpCli *http.Client
+type httpCli struct {
+	client *http.Client
 }
 
-func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
+func (c *httpCli) Do(ctx context.Context, method, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -185,7 +184,7 @@ func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte,
 		req.Close = true
 	}
 
-	resp, err := c.httpCli.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		// If the context has been canceled, the context's error is probably more useful.
 		select {
@@ -200,7 +199,7 @@ func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte,
 	return resp, nil
 }
 
-func (c *httpclient) Upload(ctx context.Context, reqURL string, form UploadForm, options ...HTTPOption) (*http.Response, error) {
+func (c *httpCli) Upload(ctx context.Context, reqURL string, form UploadForm, options ...HTTPOption) (*http.Response, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, 20<<10)) // 20kb
 	w := multipart.NewWriter(buf)
 
@@ -220,16 +219,16 @@ func (c *httpclient) Upload(ctx context.Context, reqURL string, form UploadForm,
 }
 
 // NewHTTPClient 通过官方 `http.Client` 生成一个HTTP客户端
-func NewHTTPClient(httpCli *http.Client) HTTPClient {
-	return &httpclient{
-		httpCli: httpCli,
+func NewHTTPClient(cli *http.Client) HTTPClient {
+	return &httpCli{
+		client: cli,
 	}
 }
 
 // NewDefaultHTTPClient 生成一个默认的HTTP客户端
-func NewDefaultClient(certs ...tls.Certificate) HTTPClient {
-	return &httpclient{
-		httpCli: &http.Client{
+func NewDefaultHTTPClient(certs ...tls.Certificate) HTTPClient {
+	return &httpCli{
+		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
@@ -249,34 +248,4 @@ func NewDefaultClient(certs ...tls.Certificate) HTTPClient {
 			},
 		},
 	}
-}
-
-// defaultHTTPClient default http httpCli
-var defaultHTTPClient = NewDefaultClient()
-
-// HTTPGet 发送GET请求
-func HTTPGet(ctx context.Context, reqURL string, options ...HTTPOption) (*http.Response, error) {
-	return defaultHTTPClient.Do(ctx, http.MethodGet, reqURL, nil, options...)
-}
-
-// HTTPPost 发送POST请求
-func HTTPPost(ctx context.Context, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
-	return defaultHTTPClient.Do(ctx, http.MethodPost, reqURL, body, options...)
-}
-
-// HTTPPostForm 发送POST表单请求
-func HTTPPostForm(ctx context.Context, reqURL string, data url.Values, options ...HTTPOption) (*http.Response, error) {
-	options = append(options, WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"))
-
-	return defaultHTTPClient.Do(ctx, http.MethodPost, reqURL, []byte(data.Encode()), options...)
-}
-
-// HTTPUpload 文件上传
-func HTTPUpload(ctx context.Context, reqURL string, form UploadForm, options ...HTTPOption) (*http.Response, error) {
-	return defaultHTTPClient.Upload(ctx, reqURL, form, options...)
-}
-
-// HTTPDo 发送HTTP请求
-func HTTPDo(ctx context.Context, method, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
-	return defaultHTTPClient.Do(ctx, method, reqURL, body, options...)
 }

@@ -529,7 +529,7 @@ func NewPayV3(mchid, appid, apikey string, options ...PayV3Option) *PayV3 {
 		mchid:   mchid,
 		appid:   appid,
 		apikey:  apikey,
-		httpCli: NewDefaultClient(),
+		httpCli: NewDefaultHTTPClient(),
 	}
 
 	for _, f := range options {
