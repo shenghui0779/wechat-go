@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/tidwall/gjson"
+	"golang.org/x/sync/singleflight"
 )
 
 // PayV3 微信支付V3
@@ -25,9 +25,9 @@ type PayV3 struct {
 	apikey  string
 	prvSN   string
 	prvKey  *PrivateKey
-	pubKeyM sync.Map
+	pubKeyM map[string]*PublicKey
+	mutex   singleflight.Group
 	httpCli HTTPClient
-	mutex   sync.Mutex
 	logger  func(ctx context.Context, data map[string]string)
 }
 
@@ -65,52 +65,48 @@ func (p *PayV3) URL(path string, query url.Values) string {
 }
 
 func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, error) {
-	if v, ok := p.pubKeyM.Load(serialNO); ok {
-		return v.(*PublicKey), nil
+	pubKey, ok := p.pubKeyM[serialNO]
+
+	if ok {
+		return pubKey, nil
 	}
 
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	v, err, _ := p.mutex.Do(serialNO, func() (interface{}, error) {
+		ret, err := p.httpCerts(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	// 再次获取确认
-	if v, ok := p.pubKeyM.Load(serialNO); ok {
-		return v.(*PublicKey), nil
-	}
+		for _, v := range ret.Array() {
+			cert := v.Get("encrypt_certificate")
 
-	ret, err := p.httpCerts(ctx)
+			gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
+			block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
+			if err != nil {
+				return nil, err
+			}
+
+			key, err := NewPublicKeyFromDerBlock(block)
+			if err != nil {
+				return nil, err
+			}
+
+			p.pubKeyM[cert.Get("serial_no").String()] = key
+		}
+
+		pk, ok := p.pubKeyM[serialNO]
+		if !ok {
+			return nil, fmt.Errorf("cert(serial_no=%s) not found", serialNO)
+		}
+
+		return pk, nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	var pubkey *PublicKey
-
-	for _, v := range ret.Array() {
-		cert := v.Get("encrypt_certificate")
-
-		gcm := NewAesGCM([]byte(p.apikey), []byte(cert.Get("nonce").String()))
-		block, err := gcm.Decrypt([]byte(cert.Get("ciphertext").String()), []byte(cert.Get("associated_data").String()))
-		if err != nil {
-			return nil, err
-		}
-
-		key, err := NewPublicKeyFromDerBlock(block)
-		if err != nil {
-			return nil, err
-		}
-
-		certNO := cert.Get("serial_no").String()
-		if certNO != serialNO {
-			pubkey = key
-		}
-
-		p.pubKeyM.Store(certNO, key)
-	}
-
-	if pubkey == nil {
-		return nil, fmt.Errorf("no expected cert, serialNO = %s", serialNO)
-	}
-
-	return pubkey, nil
+	return v.(*PublicKey), nil
 }
 
 func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
@@ -186,7 +182,7 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	}
 
 	if !valid {
-		return fail(fmt.Errorf("no vaild cert(%s) in list", serial))
+		return fail(fmt.Errorf("sign header cert(serial_no=%s) not found", serial))
 	}
 
 	return ret, nil
