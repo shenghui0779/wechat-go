@@ -47,8 +47,7 @@ func (mp *MiniProgram) Secret() string {
 	return mp.secret
 }
 
-// URL 生成请求URL
-func (mp *MiniProgram) URL(path string, query url.Values) string {
+func (mp *MiniProgram) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(mp.host)
@@ -65,40 +64,31 @@ func (mp *MiniProgram) URL(path string, query url.Values) string {
 	return builder.String()
 }
 
-// Code2Session 通过临时登录凭证code完成登录流程
-func (mp *MiniProgram) Code2Session(ctx context.Context, code string) (gjson.Result, error) {
-	query := url.Values{}
+func (mp *MiniProgram) do(ctx context.Context, method, path string, query url.Values, params X, options ...HTTPOption) ([]byte, error) {
+	reqURL := mp.url(path, query)
 
-	query.Set("appid", mp.appid)
-	query.Set("secret", mp.secret)
-	query.Set("js_code", code)
-	query.Set("grant_type", "authorization_code")
-
-	return mp.GetJSON(ctx, "/sns/jscode2session", query)
-}
-
-// AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
-func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
-	query := url.Values{}
-
-	query.Set("appid", mp.appid)
-	query.Set("secret", mp.secret)
-	query.Set("grant_type", "client_credential")
-
-	return mp.GetJSON(ctx, "/cgi-bin/token", query)
-}
-
-// GetJSON GET请求JSON数据
-func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	reqURL := mp.URL(path, query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
+	log := NewReqLog(method, reqURL)
 	defer log.Do(ctx, mp.logger)
 
-	resp, err := mp.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return fail(err)
+	var (
+		body []byte
+		err  error
+	)
+
+	if len(params) != 0 {
+		body, err = json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+
+		log.SetReqBody(string(body))
 	}
+
+	resp, err := mp.httpCli.Do(ctx, method, reqURL, body, options...)
+	if err != nil {
+		return nil, err
+	}
+
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -110,10 +100,72 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 
 	log.SetRespBody(string(b))
+
+	return b, nil
+}
+
+func (mp *MiniProgram) doSafe(ctx context.Context) {
+
+}
+
+// Code2Session 通过临时登录凭证code完成登录流程
+func (mp *MiniProgram) Code2Session(ctx context.Context, code string) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("appid", mp.appid)
+	query.Set("secret", mp.secret)
+	query.Set("js_code", code)
+	query.Set("grant_type", "authorization_code")
+
+	b, err := mp.do(ctx, http.MethodGet, "/sns/jscode2session", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
+}
+
+// AccessToken 获取接口调用凭据
+func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
+	query := url.Values{}
+
+	query.Set("appid", mp.appid)
+	query.Set("secret", mp.secret)
+	query.Set("grant_type", "client_credential")
+
+	b, err := mp.do(ctx, http.MethodGet, "/cgi-bin/token", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
+}
+
+// GetJSON GET请求JSON数据
+func (mp *MiniProgram) GetJSON(ctx context.Context, accessToken, path string, query url.Values) (gjson.Result, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set(AccessToken, accessToken)
+
+	b, err := mp.do(ctx, http.MethodGet, path, query, nil)
+	if err != nil {
+		return fail(err)
+	}
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -124,39 +176,14 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, path string, query url.Value
 }
 
 // PostJSON POST请求JSON数据
-func (mp *MiniProgram) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
-	reqURL := mp.URL(path, query)
+func (mp *MiniProgram) PostJSON(ctx context.Context, accessToken, path string, params X) (gjson.Result, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, mp.logger)
-
-	body, err := json.Marshal(params)
+	b, err := mp.do(ctx, http.MethodPost, path, query, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return fail(err)
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-	if err != nil {
-		return fail(err)
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
