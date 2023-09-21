@@ -13,7 +13,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Corp 企业微信
+// Corp 企业微信(企业内部开发)
 type Corp struct {
 	host    string
 	corpid  string
@@ -303,7 +303,7 @@ func WithCorpLogger(f func(ctx context.Context, data map[string]string)) CorpOpt
 	}
 }
 
-// NewCorp 生成一个企业微信实例
+// NewCorp 生成一个企业微信(企业内部开发)实例
 func NewCorp(corpid, secret string, options ...CorpOption) *Corp {
 	c := &Corp{
 		host:    "https://qyapi.weixin.qq.com",

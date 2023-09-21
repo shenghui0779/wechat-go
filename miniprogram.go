@@ -37,12 +37,12 @@ type MiniProgram struct {
 	logger  func(ctx context.Context, data map[string]string)
 }
 
-// AppID 返回AppID
+// AppID 返回appid
 func (mp *MiniProgram) AppID() string {
 	return mp.appid
 }
 
-// Secret 返回Secret
+// Secret 返回secret
 func (mp *MiniProgram) Secret() string {
 	return mp.secret
 }
@@ -365,8 +365,8 @@ func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
 }
 
 // StableAccessToken 获取稳定版接口调用凭据，有两种调用模式:
-// 1. 普通模式，access_token 有效期内重复调用该接口不会更新 access_token，绝大部分场景下使用该模式；
-// 2. 强制刷新模式，会导致上次获取的 access_token 失效，并返回新的 access_token
+// 1. 普通模式，access_token有效期内重复调用该接口不会更新access_token，绝大部分场景下使用该模式；
+// 2. 强制刷新模式，会导致上次获取的access_token失效，并返回新的access_token
 func (mp *MiniProgram) StableAccessToken(ctx context.Context, forceRefresh bool) (gjson.Result, error) {
 	params := X{
 		"grant_type":    "client_credential",
@@ -547,6 +547,34 @@ func (mp *MiniProgram) VerifyURL(signature, timestamp, nonce string) error {
 	}
 
 	return nil
+}
+
+// DecodeEncryptData 解析加密数据，如：授权的用户信息和手机号
+// [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/signature.html)
+func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) (gjson.Result, error) {
+	keyBlock, err := base64.StdEncoding.DecodeString(sessionKey)
+	if err != nil {
+		return fail(fmt.Errorf("session_key base64.decode error: %w", err))
+	}
+
+	ivBlock, err := base64.StdEncoding.DecodeString(iv)
+	if err != nil {
+		return fail(fmt.Errorf("iv base64.decode error: %w", err))
+	}
+
+	data, err := base64.StdEncoding.DecodeString(encryptData)
+	if err != nil {
+		return fail(fmt.Errorf("encrypt_data base64.decode error: %w", err))
+	}
+
+	cbc := NewAesCBC(keyBlock, ivBlock, AES_PKCS7)
+
+	b, err := cbc.Decrypt(data)
+	if err != nil {
+		return fail(err)
+	}
+
+	return gjson.ParseBytes(b), nil
 }
 
 // DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
