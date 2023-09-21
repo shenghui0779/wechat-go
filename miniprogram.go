@@ -76,7 +76,7 @@ func (mp *MiniProgram) do(ctx context.Context, method, path string, query url.Va
 	)
 
 	if params != nil {
-		body, err := json.Marshal(params)
+		body, err = json.Marshal(params)
 		if err != nil {
 			return nil, err
 		}
