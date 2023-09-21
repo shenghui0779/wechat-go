@@ -33,8 +33,7 @@ func (c *Corp) Secret() string {
 	return c.secret
 }
 
-// URL 生成请求URL
-func (c *Corp) URL(path string, query url.Values) string {
+func (c *Corp) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(c.host)
@@ -49,6 +48,49 @@ func (c *Corp) URL(path string, query url.Values) string {
 	}
 
 	return builder.String()
+}
+
+func (c *Corp) do(ctx context.Context, method, path string, query url.Values, params X, options ...HTTPOption) ([]byte, error) {
+	reqURL := c.url(path, query)
+
+	log := NewReqLog(method, reqURL)
+	defer log.Do(ctx, c.logger)
+
+	var (
+		body []byte
+		err  error
+	)
+
+	if params != nil {
+		body, err := json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+
+		log.SetReqBody(string(body))
+	}
+
+	resp, err := c.httpCli.Do(ctx, method, reqURL, body, options...)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetRespBody(string(b))
+
+	return b, nil
 }
 
 // OAuthURL 生成网页授权URL
@@ -73,35 +115,30 @@ func (c *Corp) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query.Set("corpid", c.corpid)
 	query.Set("corpsecret", c.secret)
 
-	return c.GetJSON(ctx, "/cgi-bin/gettoken", query)
+	b, err := c.do(ctx, http.MethodGet, "/cgi-bin/gettoken", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
 }
 
 // GetJSON GET请求JSON数据
-func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	reqURL := c.URL(path, query)
+func (c *Corp) GetJSON(ctx context.Context, accessToken, path string, query url.Values) (gjson.Result, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	resp, err := c.httpCli.Do(ctx, http.MethodGet, c.URL(path, query), nil)
+	b, err := c.do(ctx, http.MethodGet, path, query, nil)
 	if err != nil {
 		return fail(err)
 	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -112,38 +149,14 @@ func (c *Corp) GetJSON(ctx context.Context, path string, query url.Values) (gjso
 }
 
 // PostJSON POST请求JSON数据
-func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
-	reqURL := c.URL(path, query)
+func (c *Corp) PostJSON(ctx context.Context, accessToken, path string, params X) (gjson.Result, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	body, err := json.Marshal(params)
+	b, err := c.do(ctx, http.MethodPost, path, query, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return fail(err)
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-	if err != nil {
-		return fail(err)
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -154,31 +167,16 @@ func (c *Corp) PostJSON(ctx context.Context, path string, query url.Values, para
 }
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
-func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	reqURL := c.URL(path, query)
+func (c *Corp) GetBuffer(ctx context.Context, accessToken, path string, query url.Values) ([]byte, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
+	b, err := c.do(ctx, http.MethodGet, path, query, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -189,38 +187,14 @@ func (c *Corp) GetBuffer(ctx context.Context, path string, query url.Values) ([]
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
-	reqURL := c.URL(path, query)
+func (c *Corp) PostBuffer(ctx context.Context, accessToken, path string, params X) ([]byte, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	body, err := json.Marshal(params)
+	b, err := c.do(ctx, http.MethodPost, path, query, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return nil, err
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -231,8 +205,11 @@ func (c *Corp) PostBuffer(ctx context.Context, path string, query url.Values, pa
 }
 
 // Upload 上传媒体资源
-func (c *Corp) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
-	reqURL := c.URL(path, query)
+func (c *Corp) Upload(ctx context.Context, accessToken, path string, form UploadForm) (gjson.Result, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
+
+	reqURL := c.url(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)

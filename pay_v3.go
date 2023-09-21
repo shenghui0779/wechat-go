@@ -36,18 +36,12 @@ func (p *PayV3) MchID() string {
 	return p.mchid
 }
 
-// AppID 返回appid
-func (p *PayV3) AppID() string {
-	return p.mchid
-}
-
 // ApiKey 返回apikey
 func (p *PayV3) ApiKey() string {
 	return p.apikey
 }
 
-// URL 生成请求URL
-func (p *PayV3) URL(path string, query url.Values) string {
+func (p *PayV3) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(p.host)
@@ -110,7 +104,7 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 }
 
 func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
-	reqURL := p.URL("/v3/certificates", nil)
+	reqURL := p.url("/v3/certificates", nil)
 
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, p.logger)
@@ -188,67 +182,27 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 	return ret, nil
 }
 
-// GetJSON GET请求JSON数据
-func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*APIResult, error) {
-	reqURL := p.URL(path, query)
-
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, p.logger)
-
-	authStr, err := p.Authorization(http.MethodGet, path, query, "")
-	if err != nil {
-		return nil, err
-	}
-
-	log.Set(HeaderAuthorization, authStr)
-
-	resp, err := p.httpCli.Do(ctx, http.MethodGet, reqURL, nil,
-		WithHTTPHeader(HeaderAccept, "application/json"),
-		WithHTTPHeader(HeaderAuthorization, authStr),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
-
-	// 签名校验
-	if err = p.Verify(ctx, resp.Header, b); err != nil {
-		return nil, err
-	}
-
-	ret := &APIResult{
-		Code: resp.StatusCode,
-		Body: gjson.ParseBytes(b),
-	}
-
-	return ret, nil
-}
-
-// PostJSON POST请求JSON数据
-func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult, error) {
-	reqURL := p.URL(path, nil)
+func (p *PayV3) do(ctx context.Context, method, path string, query url.Values, params X) (*APIResult, error) {
+	reqURL := p.url(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
 
-	body, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
+	var (
+		body []byte
+		err  error
+	)
+
+	if params != nil {
+		body, err := json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+
+		log.SetReqBody(string(body))
 	}
 
-	log.SetReqBody(string(body))
-
-	authStr, err := p.Authorization(http.MethodPost, path, nil, string(body))
+	authStr, err := p.Authorization(method, path, nil, string(body))
 	if err != nil {
 		return nil, err
 	}
@@ -288,9 +242,19 @@ func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult
 	return ret, nil
 }
 
+// GetJSON GET请求JSON数据
+func (p *PayV3) GetJSON(ctx context.Context, path string, query url.Values) (*APIResult, error) {
+	return p.do(ctx, http.MethodGet, path, query, nil)
+}
+
+// PostJSON POST请求JSON数据
+func (p *PayV3) PostJSON(ctx context.Context, path string, params X) (*APIResult, error) {
+	return p.do(ctx, http.MethodPost, path, nil, params)
+}
+
 // Upload 上传资源
 func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIResult, error) {
-	reqURL := p.URL(path, nil)
+	reqURL := p.url(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
@@ -302,7 +266,7 @@ func (p *PayV3) Upload(ctx context.Context, path string, form UploadForm) (*APIR
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, nil, WithHTTPHeader(HeaderAuthorization, authStr))
+	resp, err := p.httpCli.Upload(ctx, reqURL, form, WithHTTPHeader(HeaderAuthorization, authStr))
 	if err != nil {
 		return nil, err
 	}

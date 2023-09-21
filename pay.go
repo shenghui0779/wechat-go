@@ -33,8 +33,7 @@ func (p *Pay) ApiKey() string {
 	return p.apikey
 }
 
-// URL 生成请求URL
-func (p *Pay) URL(path string, query url.Values) string {
+func (p *Pay) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(p.host)
@@ -51,9 +50,8 @@ func (p *Pay) URL(path string, query url.Values) string {
 	return builder.String()
 }
 
-// PostXML POST请求XML数据 (无证书请求)
-func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
-	reqURL := p.URL(path, nil)
+func (p *Pay) do(ctx context.Context, path string, params V) ([]byte, error) {
+	reqURL := p.url(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, p.logger)
@@ -86,6 +84,54 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 	}
 
 	log.SetRespBody(string(b))
+
+	return b, nil
+}
+
+func (p *Pay) doTLS(ctx context.Context, path string, params V) ([]byte, error) {
+	reqURL := p.url(path, nil)
+
+	log := NewReqLog(http.MethodPost, reqURL)
+	defer log.Do(ctx, p.logger)
+
+	params.Set("sign", p.Sign(params))
+
+	body, err := FormatVToXML(params)
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetReqBody(string(body))
+
+	resp, err := p.tlsCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetRespBody(string(b))
+
+	return b, nil
+}
+
+// PostXML POST请求XML数据 (无证书请求)
+func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
+	b, err := p.do(ctx, path, params)
+	if err != nil {
+		return nil, err
+	}
 
 	ret, err := ParseXMLToV(b)
 	if err != nil {
@@ -105,39 +151,10 @@ func (p *Pay) PostXML(ctx context.Context, path string, params V) (V, error) {
 
 // PostTLSXML POST请求XML数据 (带证书请求)
 func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) {
-	reqURL := p.URL(path, nil)
-
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, p.logger)
-
-	params.Set("sign", p.Sign(params))
-
-	body, err := FormatVToXML(params)
+	b, err := p.doTLS(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := p.tlsCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 	if err != nil {
@@ -157,39 +174,10 @@ func (p *Pay) PostTLSXML(ctx context.Context, path string, params V) (V, error) 
 
 // PostBuffer POST请求获取buffer (无证书请求，如：下载交易订单)
 func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, error) {
-	reqURL := p.URL(path, nil)
-
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, p.logger)
-
-	params.Set("sign", p.Sign(params))
-
-	body, err := FormatVToXML(params)
+	b, err := p.do(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 	if err != nil {
@@ -206,39 +194,10 @@ func (p *Pay) PostBuffer(ctx context.Context, path string, params V) ([]byte, er
 
 // PostBuffer POST请求获取buffer (带证书请求，如：下载资金账单)
 func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte, error) {
-	reqURL := p.URL(path, nil)
-
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, p.logger)
-
-	params.Set("sign", p.Sign(params))
-
-	body, err := FormatVToXML(params)
+	b, err := p.doTLS(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := p.tlsCli.Do(ctx, http.MethodPost, reqURL, []byte(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status: %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret, err := ParseXMLToV(b)
 	if err != nil {

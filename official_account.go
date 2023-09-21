@@ -40,7 +40,7 @@ func (oa *OfficialAccount) Secret() string {
 }
 
 // URL 生成请求URL
-func (oa *OfficialAccount) URL(path string, query url.Values) string {
+func (oa *OfficialAccount) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(oa.host)
@@ -55,6 +55,49 @@ func (oa *OfficialAccount) URL(path string, query url.Values) string {
 	}
 
 	return builder.String()
+}
+
+func (oa *OfficialAccount) do(ctx context.Context, method, path string, query url.Values, params X, options ...HTTPOption) ([]byte, error) {
+	reqURL := oa.url(path, query)
+
+	log := NewReqLog(method, reqURL)
+	defer log.Do(ctx, oa.logger)
+
+	var (
+		body []byte
+		err  error
+	)
+
+	if params != nil {
+		body, err := json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+
+		log.SetReqBody(string(body))
+	}
+
+	resp, err := oa.httpCli.Do(ctx, method, reqURL, body, options...)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetRespBody(string(b))
+
+	return b, nil
 }
 
 // OAuth2URL 生成网页授权URL
@@ -94,7 +137,17 @@ func (oa *OfficialAccount) Code2OAuthToken(ctx context.Context, code string) (gj
 	query.Set("code", code)
 	query.Set("grant_type", "authorization_code")
 
-	return oa.GetJSON(ctx, "/sns/oauth2/access_token", query)
+	b, err := oa.do(ctx, http.MethodGet, "/sns/oauth2/access_token", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
 }
 
 // RefreshOAuthToken 刷新网页授权Token
@@ -105,10 +158,20 @@ func (oa *OfficialAccount) RefreshOAuthToken(ctx context.Context, refreshToken s
 	query.Set("grant_type", "refresh_token")
 	query.Set("refresh_token", refreshToken)
 
-	return oa.GetJSON(ctx, "/sns/oauth2/refresh_token", query)
+	b, err := oa.do(ctx, http.MethodGet, "/sns/oauth2/refresh_token", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
 }
 
-// AccessToken 获取接口调用凭据 (开发者应在 WithAccessToken 回调函数中使用该方法，并自行实现存/取)
+// AccessToken 获取接口调用凭据
 func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query := url.Values{}
 
@@ -116,35 +179,30 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error
 	query.Set("secret", oa.secret)
 	query.Set("grant_type", "client_credential")
 
-	return oa.GetJSON(ctx, "/cgi-bin/token", query)
+	b, err := oa.do(ctx, http.MethodGet, "/cgi-bin/token", query, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
 }
 
 // GetJSON GET请求JSON数据
-func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.Values) (gjson.Result, error) {
-	reqURL := oa.URL(path, query)
+func (oa *OfficialAccount) GetJSON(ctx context.Context, accessToken, path string, query url.Values) (gjson.Result, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	resp, err := oa.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
+	b, err := oa.do(ctx, http.MethodGet, path, query, nil)
 	if err != nil {
 		return fail(err)
 	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -155,38 +213,14 @@ func (oa *OfficialAccount) GetJSON(ctx context.Context, path string, query url.V
 }
 
 // PostJSON POST请求JSON数据
-func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.Values, params X) (gjson.Result, error) {
-	reqURL := oa.URL(path, query)
+func (oa *OfficialAccount) PostJSON(ctx context.Context, accessToken, path string, params X) (gjson.Result, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	body, err := json.Marshal(params)
+	b, err := oa.do(ctx, http.MethodPost, path, query, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return fail(err)
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := oa.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-	if err != nil {
-		return fail(err)
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fail(err)
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -197,31 +231,16 @@ func (oa *OfficialAccount) PostJSON(ctx context.Context, path string, query url.
 }
 
 // GetBuffer GET请求获取buffer (如：获取媒体资源)
-func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	reqURL := oa.URL(path, query)
+func (oa *OfficialAccount) GetBuffer(ctx context.Context, accessToken, path string, query url.Values) ([]byte, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodGet, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	resp, err := oa.httpCli.Do(ctx, http.MethodGet, reqURL, nil)
+	b, err := oa.do(ctx, http.MethodGet, path, query, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetReqBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -232,38 +251,14 @@ func (oa *OfficialAccount) GetBuffer(ctx context.Context, path string, query url
 }
 
 // PostBuffer POST请求获取buffer (如：获取二维码)
-func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query url.Values, params X) ([]byte, error) {
-	reqURL := oa.URL(path, query)
+func (oa *OfficialAccount) PostBuffer(ctx context.Context, accessToken, path string, params X) ([]byte, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
 
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, oa.logger)
-
-	body, err := json.Marshal(params)
+	b, err := oa.do(ctx, http.MethodPost, path, query, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return nil, err
 	}
-
-	log.SetReqBody(string(body))
-
-	resp, err := oa.httpCli.Do(ctx, http.MethodPost, reqURL, body, WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
 
 	ret := gjson.ParseBytes(b)
 	if code := ret.Get("errcode").Int(); code != 0 {
@@ -274,8 +269,11 @@ func (oa *OfficialAccount) PostBuffer(ctx context.Context, path string, query ur
 }
 
 // Upload 上传媒体资源
-func (oa *OfficialAccount) Upload(ctx context.Context, path string, query url.Values, form UploadForm) (gjson.Result, error) {
-	reqURL := oa.URL(path, query)
+func (oa *OfficialAccount) Upload(ctx context.Context, accessToken, path string, form UploadForm) (gjson.Result, error) {
+	query := url.Values{}
+	query.Set(AccessToken, accessToken)
+
+	reqURL := oa.url(path, query)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, oa.logger)
