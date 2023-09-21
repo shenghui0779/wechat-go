@@ -192,6 +192,30 @@ func (oa *OfficialAccount) AccessToken(ctx context.Context) (gjson.Result, error
 	return ret, nil
 }
 
+// StableAccessToken 获取稳定版接口调用凭据，有两种调用模式:
+// 1. 普通模式，access_token 有效期内重复调用该接口不会更新 access_token，绝大部分场景下使用该模式；
+// 2. 强制刷新模式，会导致上次获取的 access_token 失效，并返回新的 access_token
+func (oa *OfficialAccount) StableAccessToken(ctx context.Context, forceRefresh bool) (gjson.Result, error) {
+	params := X{
+		"grant_type":    "client_credential",
+		"appid":         oa.appid,
+		"secret":        oa.secret,
+		"force_refresh": forceRefresh,
+	}
+
+	b, err := oa.do(ctx, http.MethodPost, "/cgi-bin/stable_token", nil, params, WithHTTPHeader(HeaderContentType, ContentJSON))
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
+}
+
 // GetJSON GET请求JSON数据
 func (oa *OfficialAccount) GetJSON(ctx context.Context, accessToken, path string, query url.Values) (gjson.Result, error) {
 	if query == nil {

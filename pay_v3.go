@@ -185,7 +185,7 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 func (p *PayV3) do(ctx context.Context, method, path string, query url.Values, params X) (*APIResult, error) {
 	reqURL := p.url(path, query)
 
-	log := NewReqLog(http.MethodPost, reqURL)
+	log := NewReqLog(method, reqURL)
 	defer log.Do(ctx, p.logger)
 
 	var (
@@ -202,14 +202,14 @@ func (p *PayV3) do(ctx context.Context, method, path string, query url.Values, p
 		log.SetReqBody(string(body))
 	}
 
-	authStr, err := p.Authorization(method, path, nil, string(body))
+	authStr, err := p.Authorization(method, path, query, string(body))
 	if err != nil {
 		return nil, err
 	}
 
 	log.Set(HeaderAuthorization, authStr)
 
-	resp, err := p.httpCli.Do(ctx, http.MethodPost, reqURL, body,
+	resp, err := p.httpCli.Do(ctx, method, reqURL, body,
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderAuthorization, authStr),
 		WithHTTPHeader(HeaderContentType, ContentJSON),

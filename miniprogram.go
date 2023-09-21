@@ -110,7 +110,7 @@ func (mp *MiniProgram) do(ctx context.Context, method, path string, query url.Va
 func (mp *MiniProgram) doSafe(ctx context.Context, method, path string, query url.Values, params X) ([]byte, error) {
 	reqURL := mp.url(path, query)
 
-	log := NewReqLog(http.MethodPost, reqURL)
+	log := NewReqLog(method, reqURL)
 	defer log.Do(ctx, mp.logger)
 
 	now := time.Now().Unix()
@@ -143,7 +143,7 @@ func (mp *MiniProgram) doSafe(ctx context.Context, method, path string, query ur
 
 	log.SetReqHeader(reqHeader)
 
-	resp, err := mp.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
+	resp, err := mp.httpCli.Do(ctx, method, reqURL, body, HeaderToHttpOption(reqHeader)...)
 	if err != nil {
 		return nil, err
 	}
@@ -352,6 +352,30 @@ func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query.Set("grant_type", "client_credential")
 
 	b, err := mp.do(ctx, http.MethodGet, "/cgi-bin/token", query, nil, nil)
+	if err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.ParseBytes(b)
+	if code := ret.Get("errcode").Int(); code != 0 {
+		return fail(fmt.Errorf("%d | %s", code, ret.Get("errmsg").String()))
+	}
+
+	return ret, nil
+}
+
+// StableAccessToken 获取稳定版接口调用凭据，有两种调用模式:
+// 1. 普通模式，access_token 有效期内重复调用该接口不会更新 access_token，绝大部分场景下使用该模式；
+// 2. 强制刷新模式，会导致上次获取的 access_token 失效，并返回新的 access_token
+func (mp *MiniProgram) StableAccessToken(ctx context.Context, forceRefresh bool) (gjson.Result, error) {
+	params := X{
+		"grant_type":    "client_credential",
+		"appid":         mp.appid,
+		"secret":        mp.secret,
+		"force_refresh": forceRefresh,
+	}
+
+	b, err := mp.do(ctx, http.MethodPost, "/cgi-bin/stable_token", nil, params, WithHTTPHeader(HeaderContentType, ContentJSON))
 	if err != nil {
 		return fail(err)
 	}
