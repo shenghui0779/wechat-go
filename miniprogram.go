@@ -330,7 +330,7 @@ func (mp *MiniProgram) Code2Session(ctx context.Context, code string) (gjson.Res
 	query.Set("js_code", code)
 	query.Set("grant_type", "authorization_code")
 
-	b, err := mp.do(ctx, http.MethodGet, "/sns/jscode2session", query, nil, nil)
+	b, err := mp.do(ctx, http.MethodGet, "/sns/jscode2session", query, nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -351,7 +351,7 @@ func (mp *MiniProgram) AccessToken(ctx context.Context) (gjson.Result, error) {
 	query.Set("secret", mp.secret)
 	query.Set("grant_type", "client_credential")
 
-	b, err := mp.do(ctx, http.MethodGet, "/cgi-bin/token", query, nil, nil)
+	b, err := mp.do(ctx, http.MethodGet, "/cgi-bin/token", query, nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -395,7 +395,7 @@ func (mp *MiniProgram) GetJSON(ctx context.Context, accessToken, path string, qu
 	}
 	query.Set(AccessToken, accessToken)
 
-	b, err := mp.do(ctx, http.MethodGet, path, query, nil, nil)
+	b, err := mp.do(ctx, http.MethodGet, path, query, nil)
 	if err != nil {
 		return fail(err)
 	}
