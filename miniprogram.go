@@ -551,30 +551,25 @@ func (mp *MiniProgram) VerifyURL(signature, timestamp, nonce string) error {
 
 // DecodeEncryptData 解析加密数据，如：授权的用户信息和手机号
 // [参考](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/signature.html)
-func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) (gjson.Result, error) {
+func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) ([]byte, error) {
 	keyBlock, err := base64.StdEncoding.DecodeString(sessionKey)
 	if err != nil {
-		return fail(fmt.Errorf("session_key base64.decode error: %w", err))
+		return nil, fmt.Errorf("session_key base64.decode error: %w", err)
 	}
 
 	ivBlock, err := base64.StdEncoding.DecodeString(iv)
 	if err != nil {
-		return fail(fmt.Errorf("iv base64.decode error: %w", err))
+		return nil, fmt.Errorf("iv base64.decode error: %w", err)
 	}
 
 	data, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
-		return fail(fmt.Errorf("encrypt_data base64.decode error: %w", err))
+		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
 	cbc := NewAesCBC(keyBlock, ivBlock, AES_PKCS7)
 
-	b, err := cbc.Decrypt(data)
-	if err != nil {
-		return fail(err)
-	}
-
-	return gjson.ParseBytes(b), nil
+	return cbc.Decrypt(data)
 }
 
 // DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
