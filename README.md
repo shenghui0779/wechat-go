@@ -5,5 +5,5 @@
 微信 Go SDK
 
 ```sh
-go get -u github.com/shenghui0779/wechat
+go get -u github.com/shenghui0779/wechat-go
 ```
