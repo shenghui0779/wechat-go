@@ -1,4 +1,4 @@
-module github.com/shenghui0779/wechat
+module github.com/shenghui0779/wechat-go
 
 go 1.18
 
