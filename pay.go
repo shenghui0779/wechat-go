@@ -259,8 +259,7 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 		return nil, err
 	}
 
-	ecb := NewAesECB([]byte(MD5(p.apikey)), AES_PKCS7(32))
-	plainText, err := ecb.Decrypt(cipherText)
+	plainText, err := AesEcbDecrypt([]byte(MD5(p.apikey)), cipherText)
 	if err != nil {
 		return nil, err
 	}

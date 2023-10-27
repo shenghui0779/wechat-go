@@ -213,7 +213,7 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 	iv := NonceByte(12)
 	authtag := fmt.Sprintf("%s|%s|%d|%s", mp.url(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
 
-	b, err := NewAesGCM(key, iv).Encrypt(data, []byte(authtag))
+	b, err := AesGcmEncrypt(key, iv, data, []byte(authtag))
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return NewAesGCM(key, iv).Decrypt(data, authtag)
+	return AesGcmDecrypt(key, iv, data, authtag)
 }
 
 // Code2Session 通过临时登录凭证code完成登录流程
@@ -567,9 +567,7 @@ func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) ([]
 		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
-	cbc := NewAesCBC(keyBlock, ivBlock, AES_PKCS7(32))
-
-	return cbc.Decrypt(data)
+	return AesCbcDecrypt(keyBlock, ivBlock, data)
 }
 
 // DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt

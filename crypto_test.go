@@ -8,71 +8,43 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAesCBC(t *testing.T) {
+func TestAesCbcCrypto(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	iv := key[:aes.BlockSize]
-	plainText := "ILoveYiigo"
+	data := "ILoveYiigo"
 
-	// pkcs#5
-	pkcs5 := NewAesCBC(key, iv, AES_PKCS5())
-
-	e5b, err := pkcs5.Encrypt([]byte(plainText))
+	cipher, err := AesCbcEncrypt(key, iv, []byte(data))
 	assert.Nil(t, err)
 
-	d5b, err := pkcs5.Decrypt(e5b)
+	plain, err := AesCbcDecrypt(key, iv, cipher)
 	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d5b))
-
-	// pkcs#7
-	pkcs7 := NewAesCBC(key, iv, AES_PKCS7(32))
-
-	e7b, err := pkcs7.Encrypt([]byte(plainText))
-	assert.Nil(t, err)
-
-	d7b, err := pkcs7.Decrypt(e7b)
-	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d7b))
+	assert.Equal(t, data, string(plain))
 }
 
-func TestAesECB(t *testing.T) {
+func TestAesEcbCrypto(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
-	plainText := "ILoveYiigo"
+	data := "ILoveYiigo"
 
-	// pkcs#5
-	pkcs5 := NewAesECB(key, AES_PKCS5())
-
-	e5b, err := pkcs5.Encrypt([]byte(plainText))
+	cipher, err := AesEcbEncrypt(key, []byte(data))
 	assert.Nil(t, err)
 
-	d5b, err := pkcs5.Decrypt(e5b)
+	plain, err := AesEcbDecrypt(key, cipher)
 	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d5b))
-
-	// pkcs#7
-	pkcs7 := NewAesECB(key, AES_PKCS7(32))
-
-	e7b, err := pkcs7.Encrypt([]byte(plainText))
-	assert.Nil(t, err)
-
-	d7b, err := pkcs7.Decrypt(e7b)
-	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d7b))
+	assert.Equal(t, data, string(plain))
 }
 
-func TestAesGCM(t *testing.T) {
+func TestAesGcmCrypto(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	nonce := key[:12]
 	plainText := "IloveYiigo"
 	additionalData := "IIInsomnia"
 
-	gcm := NewAesGCM(key, nonce)
-
-	eb, err := gcm.Encrypt([]byte(plainText), []byte(additionalData))
+	cipher, err := AesGcmEncrypt(key, nonce, []byte(plainText), []byte(additionalData))
 	assert.Nil(t, err)
 
-	db, err := gcm.Decrypt(eb, []byte(additionalData))
+	plain, err := AesGcmDecrypt(key, nonce, cipher, []byte(additionalData))
 	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(db))
+	assert.Equal(t, plainText, string(plain))
 }
 
 func TestRSACrypto(t *testing.T) {
