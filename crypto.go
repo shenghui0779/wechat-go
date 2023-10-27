@@ -354,20 +354,20 @@ func PKCS5Padding(data []byte, blockSize int) []byte {
 		padding = blockSize
 	}
 
-	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	b := bytes.Repeat([]byte{byte(padding)}, padding)
 
-	return append(data, padText...)
+	return append(data, b...)
 }
 
 func PKCS5Unpadding(data []byte, blockSize int) []byte {
 	length := len(data)
-	unpadding := int(data[length-1])
+	padding := int(data[length-1])
 
-	if unpadding < 1 || unpadding > blockSize {
-		unpadding = 0
+	if padding < 1 || padding > blockSize {
+		padding = 0
 	}
 
-	return data[:(length - unpadding)]
+	return data[:(length - padding)]
 }
 
 // --------------------------------- ECB BlockMode ---------------------------------
