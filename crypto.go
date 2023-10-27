@@ -15,21 +15,24 @@ import (
 	"path/filepath"
 )
 
-// AESPaddingMode AES填充模式
-type AESPaddingMode int
+// AESPadding AES 填充模式
+type AESPadding interface {
+	// BlockSize 填充字节数
+	BlockSize() int
+
+	// Padding 填充
+	Padding(data []byte) []byte
+
+	// UnPadding 移除填充
+	UnPadding(data []byte) []byte
+}
+
+// RSAPadding RSA PEM 填充模式
+type RSAPadding int
 
 const (
-	AES_ZERO  AESPaddingMode = 0 // 0
-	AES_PKCS5 AESPaddingMode = 5 // PKCS#5
-	AES_PKCS7 AESPaddingMode = 7 // PKCS#7
-)
-
-// RSAPaddingMode RSA PEM 填充模式
-type RSAPaddingMode int
-
-const (
-	RSA_PKCS1 RSAPaddingMode = 1 // PKCS#1 (格式：`RSA PRIVATE KEY` 和 `RSA PUBLIC KEY`)
-	RSA_PKCS8 RSAPaddingMode = 8 // PKCS#8 (格式：`PRIVATE KEY` 和 `PUBLIC KEY`)
+	RSA_PKCS1 RSAPadding = 1 // PKCS#1 (格式：`RSA PRIVATE KEY` 和 `RSA PUBLIC KEY`)
+	RSA_PKCS8 RSAPadding = 8 // PKCS#8 (格式：`PRIVATE KEY` 和 `PUBLIC KEY`)
 )
 
 // ------------------------------------ AES ------------------------------------
@@ -38,7 +41,7 @@ const (
 type AesCBC struct {
 	key  []byte
 	iv   []byte
-	mode AESPaddingMode
+	mode AESPadding
 }
 
 // Encrypt AES-CBC 加密
@@ -52,14 +55,7 @@ func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 		return nil, errors.New("IV length must equal block size")
 	}
 
-	switch c.mode {
-	case AES_ZERO:
-		plainText = ZeroPadding(plainText, block.BlockSize())
-	case AES_PKCS5:
-		plainText = PKCS5Padding(plainText, block.BlockSize())
-	case AES_PKCS7:
-		plainText = PKCS5Padding(plainText, len(c.key))
-	}
+	plainText = c.mode.Padding(plainText)
 
 	bm := cipher.NewCBCEncrypter(block, c.iv)
 	if len(plainText)%bm.BlockSize() != 0 {
@@ -91,20 +87,11 @@ func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
 	plainText := make([]byte, len(cipherText))
 	bm.CryptBlocks(plainText, cipherText)
 
-	switch c.mode {
-	case AES_ZERO:
-		plainText = ZeroUnPadding(plainText)
-	case AES_PKCS5:
-		plainText = PKCS5Unpadding(plainText, block.BlockSize())
-	case AES_PKCS7:
-		plainText = PKCS5Unpadding(plainText, len(c.key))
-	}
-
-	return plainText, nil
+	return c.mode.UnPadding(plainText), nil
 }
 
 // NewAesCBC 生成 AES-CBC 加密模式
-func NewAesCBC(key, iv []byte, mode AESPaddingMode) *AesCBC {
+func NewAesCBC(key, iv []byte, mode AESPadding) *AesCBC {
 	return &AesCBC{
 		key:  key,
 		iv:   iv,
@@ -115,7 +102,7 @@ func NewAesCBC(key, iv []byte, mode AESPaddingMode) *AesCBC {
 // AES-ECB 加密模式
 type AesECB struct {
 	key  []byte
-	mode AESPaddingMode
+	mode AESPadding
 }
 
 // Encrypt AES-ECB 加密
@@ -125,14 +112,7 @@ func (c *AesECB) Encrypt(plainText []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	switch c.mode {
-	case AES_ZERO:
-		plainText = ZeroPadding(plainText, block.BlockSize())
-	case AES_PKCS5:
-		plainText = PKCS5Padding(plainText, block.BlockSize())
-	case AES_PKCS7:
-		plainText = PKCS5Padding(plainText, len(c.key))
-	}
+	plainText = c.mode.Padding(plainText)
 
 	bm := NewECBEncrypter(block)
 	if len(plainText)%bm.BlockSize() != 0 {
@@ -160,20 +140,11 @@ func (c *AesECB) Decrypt(cipherText []byte) ([]byte, error) {
 	plainText := make([]byte, len(cipherText))
 	bm.CryptBlocks(plainText, cipherText)
 
-	switch c.mode {
-	case AES_ZERO:
-		plainText = ZeroUnPadding(plainText)
-	case AES_PKCS5:
-		plainText = PKCS5Unpadding(plainText, block.BlockSize())
-	case AES_PKCS7:
-		plainText = PKCS5Unpadding(plainText, len(c.key))
-	}
-
-	return plainText, nil
+	return c.mode.UnPadding(plainText), nil
 }
 
 // NewAesECB 生成 AES-ECB 加密模式
-func NewAesECB(key []byte, mode AESPaddingMode) *AesECB {
+func NewAesECB(key []byte, mode AESPadding) *AesECB {
 	return &AesECB{
 		key:  key,
 		mode: mode,
@@ -270,7 +241,7 @@ func (pk *PrivateKey) Sign(hash crypto.Hash, data []byte) ([]byte, error) {
 }
 
 // NewPrivateKeyFromPemBlock 通过PEM字节生成RSA私钥
-func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKey, error) {
+func NewPrivateKeyFromPemBlock(mode RSAPadding, pemBlock []byte) (*PrivateKey, error) {
 	block, _ := pem.Decode(pemBlock)
 	if block == nil {
 		return nil, errors.New("no PEM data is found")
@@ -296,7 +267,7 @@ func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKe
 }
 
 // NewPrivateKeyFromPemFile  通过PEM文件生成RSA私钥
-func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey, error) {
+func NewPrivateKeyFromPemFile(mode RSAPadding, pemFile string) (*PrivateKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
 	if err != nil {
 		return nil, err
@@ -353,7 +324,7 @@ func (pk *PublicKey) Verify(hash crypto.Hash, data, signature []byte) error {
 }
 
 // NewPublicKeyFromPemBlock 通过PEM字节生成RSA公钥
-func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey, error) {
+func NewPublicKeyFromPemBlock(mode RSAPadding, pemBlock []byte) (*PublicKey, error) {
 	block, _ := pem.Decode(pemBlock)
 	if block == nil {
 		return nil, errors.New("no PEM data is found")
@@ -379,7 +350,7 @@ func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey,
 }
 
 // NewPublicKeyFromPemFile 通过PEM文件生成RSA公钥
-func NewPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PublicKey, error) {
+func NewPublicKeyFromPemFile(mode RSAPadding, pemFile string) (*PublicKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
 	if err != nil {
 		return nil, err
@@ -427,39 +398,50 @@ func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
 	return NewPublicKeyFromDerBlock(b)
 }
 
-func ZeroPadding(cipherText []byte, blockSize int) []byte {
-	padding := blockSize - len(cipherText)%blockSize
-	padText := bytes.Repeat([]byte{0}, padding)
+// --------------------------------- AES Padding ---------------------------------
 
-	return append(cipherText, padText...)
+type pkcsPadding struct {
+	blockSize int
 }
 
-func ZeroUnPadding(plainText []byte) []byte {
-	return bytes.TrimRightFunc(plainText, func(r rune) bool {
-		return r == rune(0)
-	})
+func (p *pkcsPadding) BlockSize() int {
+	return p.blockSize
 }
 
-func PKCS5Padding(cipherText []byte, blockSize int) []byte {
-	padding := blockSize - len(cipherText)%blockSize
+func (p *pkcsPadding) Padding(data []byte) []byte {
+	padding := p.blockSize - len(data)%p.blockSize
 	if padding == 0 {
-		padding = blockSize
+		padding = p.blockSize
 	}
 
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
 
-	return append(cipherText, padText...)
+	return append(data, padText...)
 }
 
-func PKCS5Unpadding(plainText []byte, blockSize int) []byte {
-	length := len(plainText)
-	unpadding := int(plainText[length-1])
+func (p *pkcsPadding) UnPadding(data []byte) []byte {
+	length := len(data)
 
-	if unpadding < 1 || unpadding > blockSize {
-		unpadding = 0
+	padding := int(data[length-1])
+	if padding < 1 || padding > p.blockSize {
+		padding = 0
 	}
 
-	return plainText[:(length - unpadding)]
+	return data[:(length - padding)]
+}
+
+// AES_PKCS5 pcks#5填充模式(16个字节)
+func AES_PKCS5() AESPadding {
+	return &pkcsPadding{
+		blockSize: aes.BlockSize,
+	}
+}
+
+// AES_PKCS7 pcks#7填充模式(自定义字节数)
+func AES_PKCS7(blockSize int) AESPadding {
+	return &pkcsPadding{
+		blockSize: blockSize,
+	}
 }
 
 // --------------------------------- ECB BlockMode ---------------------------------

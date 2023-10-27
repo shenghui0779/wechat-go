@@ -567,7 +567,7 @@ func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) ([]
 		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
-	cbc := NewAesCBC(keyBlock, ivBlock, AES_PKCS7)
+	cbc := NewAesCBC(keyBlock, ivBlock, AES_PKCS7(32))
 
 	return cbc.Decrypt(data)
 }
