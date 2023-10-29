@@ -15,6 +15,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	gcmTagSize   = 16
+	gcmNonceSize = 12
+)
+
 // RSAPadding RSA PEM 填充模式
 type RSAPadding int
 
@@ -26,7 +31,7 @@ const (
 // ------------------------------------ AES-CBC ------------------------------------
 
 // AesCbcEncrypt AES-CBC pkcs#7 加密
-func AesCbcEncrypt(key, iv, plainText []byte) ([]byte, error) {
+func AesCbcEncrypt(key, iv, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -36,21 +41,21 @@ func AesCbcEncrypt(key, iv, plainText []byte) ([]byte, error) {
 		return nil, errors.New("IV length must equal block size")
 	}
 
-	plainText = PKCS5Padding(plainText, 32)
+	data = PKCS5Padding(data, 32)
 
 	bm := cipher.NewCBCEncrypter(block, iv)
-	if len(plainText)%bm.BlockSize() != 0 {
+	if len(data)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
-	cipherText := make([]byte, len(plainText))
-	bm.CryptBlocks(cipherText, plainText)
+	out := make([]byte, len(data))
+	bm.CryptBlocks(out, data)
 
-	return cipherText, nil
+	return out, nil
 }
 
 // AesCbcDecrypt AES-CBC pkcs#7 解密
-func AesCbcDecrypt(key, iv, cipherText []byte) ([]byte, error) {
+func AesCbcDecrypt(key, iv, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -61,60 +66,60 @@ func AesCbcDecrypt(key, iv, cipherText []byte) ([]byte, error) {
 	}
 
 	bm := cipher.NewCBCDecrypter(block, iv)
-	if len(cipherText)%bm.BlockSize() != 0 {
+	if len(data)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
-	plainText := make([]byte, len(cipherText))
-	bm.CryptBlocks(plainText, cipherText)
+	out := make([]byte, len(data))
+	bm.CryptBlocks(out, data)
 
-	return PKCS5Unpadding(plainText, 32), nil
+	return PKCS5Unpadding(out, 32), nil
 }
 
 // ------------------------------------ AES-ECB ------------------------------------
 
 // AesEcbEncrypt AES-ECB pkcs#7 加密
-func AesEcbEncrypt(key, plainText []byte) ([]byte, error) {
+func AesEcbEncrypt(key, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	plainText = PKCS5Padding(plainText, 32)
+	data = PKCS5Padding(data, 32)
 
 	bm := NewECBEncrypter(block)
-	if len(plainText)%bm.BlockSize() != 0 {
+	if len(data)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
-	cipherText := make([]byte, len(plainText))
-	bm.CryptBlocks(cipherText, plainText)
+	out := make([]byte, len(data))
+	bm.CryptBlocks(out, data)
 
-	return cipherText, nil
+	return out, nil
 }
 
 // AesEcbDecrypt AES-ECB pkcs#7 解密
-func AesEcbDecrypt(key, cipherText []byte) ([]byte, error) {
+func AesEcbDecrypt(key, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
 	bm := NewECBDecrypter(block)
-	if len(cipherText)%bm.BlockSize() != 0 {
+	if len(data)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
-	plainText := make([]byte, len(cipherText))
-	bm.CryptBlocks(plainText, cipherText)
+	out := make([]byte, len(data))
+	bm.CryptBlocks(out, data)
 
-	return PKCS5Unpadding(plainText, 32), nil
+	return PKCS5Unpadding(out, 32), nil
 }
 
 // ------------------------------------ AES-GCM ------------------------------------
 
 // AesGcmEncrypt AES-GCM 加密
-func AesGcmEncrypt(key, nonce, plainText, additionalData []byte) ([]byte, error) {
+func AesGcmEncrypt(key, nonce, data, aad []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -129,15 +134,15 @@ func AesGcmEncrypt(key, nonce, plainText, additionalData []byte) ([]byte, error)
 		return nil, errors.New("incorrect nonce length given to GCM")
 	}
 
-	if uint64(len(plainText)) > ((1<<32)-2)*uint64(block.BlockSize()) {
+	if uint64(len(data)) > ((1<<32)-2)*uint64(block.BlockSize()) {
 		return nil, errors.New("message too large for GCM")
 	}
 
-	return aead.Seal(nil, nonce, plainText, additionalData), nil
+	return aead.Seal(nil, nonce, data, aad), nil
 }
 
 // AesGcmDecrypt AES-GCM 解密
-func AesGcmDecrypt(key, nonce, cipherText, additionalData []byte) ([]byte, error) {
+func AesGcmDecrypt(key, nonce, data, aad []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -152,7 +157,7 @@ func AesGcmDecrypt(key, nonce, cipherText, additionalData []byte) ([]byte, error
 		return nil, errors.New("incorrect nonce length given to GCM")
 	}
 
-	return aesgcm.Open(nil, nonce, cipherText, additionalData)
+	return aesgcm.Open(nil, nonce, data, aad)
 }
 
 // ------------------------------------ RSA ------------------------------------
@@ -163,17 +168,17 @@ type PrivateKey struct {
 }
 
 // Decrypt RSA私钥 PKCS#1 v1.5 解密
-func (pk *PrivateKey) Decrypt(cipherText []byte) ([]byte, error) {
-	return rsa.DecryptPKCS1v15(rand.Reader, pk.key, cipherText)
+func (pk *PrivateKey) Decrypt(data []byte) ([]byte, error) {
+	return rsa.DecryptPKCS1v15(rand.Reader, pk.key, data)
 }
 
 // DecryptOAEP RSA私钥 PKCS#1 OAEP 解密
-func (pk *PrivateKey) DecryptOAEP(hash crypto.Hash, cipherText []byte) ([]byte, error) {
+func (pk *PrivateKey) DecryptOAEP(hash crypto.Hash, data []byte) ([]byte, error) {
 	if !hash.Available() {
 		return nil, fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
 	}
 
-	return rsa.DecryptOAEP(hash.New(), rand.Reader, pk.key, cipherText, nil)
+	return rsa.DecryptOAEP(hash.New(), rand.Reader, pk.key, data, nil)
 }
 
 // Sign RSA私钥签名
@@ -246,17 +251,17 @@ type PublicKey struct {
 }
 
 // Encrypt RSA公钥 PKCS#1 v1.5 加密
-func (pk *PublicKey) Encrypt(plainText []byte) ([]byte, error) {
-	return rsa.EncryptPKCS1v15(rand.Reader, pk.key, plainText)
+func (pk *PublicKey) Encrypt(data []byte) ([]byte, error) {
+	return rsa.EncryptPKCS1v15(rand.Reader, pk.key, data)
 }
 
 // EncryptOAEP RSA公钥 PKCS#1 OAEP 加密
-func (pk *PublicKey) EncryptOAEP(hash crypto.Hash, plainText []byte) ([]byte, error) {
+func (pk *PublicKey) EncryptOAEP(hash crypto.Hash, data []byte) ([]byte, error) {
 	if !hash.Available() {
 		return nil, fmt.Errorf("crypto: requested hash function (%s) is unavailable", hash.String())
 	}
 
-	return rsa.EncryptOAEP(hash.New(), rand.Reader, pk.key, plainText, nil)
+	return rsa.EncryptOAEP(hash.New(), rand.Reader, pk.key, data, nil)
 }
 
 // Verify RSA公钥验签

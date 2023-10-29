@@ -210,10 +210,10 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 		return nil, err
 	}
 
-	iv := NonceByte(12)
-	authtag := fmt.Sprintf("%s|%s|%d|%s", mp.url(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
+	iv := NonceByte(gcmNonceSize)
+	aad := fmt.Sprintf("%s|%s|%d|%s", mp.url(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
 
-	b, err := AesGcmEncrypt(key, iv, data, []byte(authtag))
+	b, err := AesGcmEncrypt(key, iv, data, []byte(aad))
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 	body := X{
 		"iv":      base64.StdEncoding.EncodeToString(iv),
 		"data":    base64.StdEncoding.EncodeToString(b),
-		"authtag": base64.StdEncoding.EncodeToString([]byte(authtag)),
+		"authtag": base64.StdEncoding.EncodeToString(b[len(b)-gcmTagSize:]),
 	}
 
 	return body, nil
