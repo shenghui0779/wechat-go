@@ -259,7 +259,7 @@ func (p *Pay) DecryptRefund(encrypt string) (V, error) {
 		return nil, err
 	}
 
-	plainText, err := AesEcbDecrypt([]byte(MD5(p.apikey)), cipherText)
+	plainText, err := AESDecryptECB([]byte(MD5(p.apikey)), cipherText)
 	if err != nil {
 		return nil, err
 	}

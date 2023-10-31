@@ -75,10 +75,10 @@ func (p *PayV3) publicKey(ctx context.Context, serialNO string) (*PublicKey, err
 			cert := v.Get("encrypt_certificate")
 
 			nonce := cert.Get("nonce").String()
-			cipherText := cert.Get("ciphertext").String()
-			associatedData := cert.Get("associated_data").String()
+			data := cert.Get("ciphertext").String()
+			aad := cert.Get("associated_data").String()
 
-			block, err := AesGcmDecrypt([]byte(p.apikey), []byte(nonce), []byte(cipherText), []byte(associatedData))
+			block, err := AESDecryptGCM([]byte(p.apikey), []byte(nonce), []byte(data), []byte(aad))
 			if err != nil {
 				return nil, err
 			}
@@ -150,10 +150,10 @@ func (p *PayV3) httpCerts(ctx context.Context) (gjson.Result, error) {
 			cert := v.Get("encrypt_certificate")
 
 			nonce := cert.Get("nonce").String()
-			cipherText := cert.Get("ciphertext").String()
-			associatedData := cert.Get("associated_data").String()
+			data := cert.Get("ciphertext").String()
+			aad := cert.Get("associated_data").String()
 
-			block, err := AesGcmDecrypt([]byte(p.apikey), []byte(nonce), []byte(cipherText), []byte(associatedData))
+			block, err := AESDecryptGCM([]byte(p.apikey), []byte(nonce), []byte(data), []byte(aad))
 			if err != nil {
 				return fail(err)
 			}

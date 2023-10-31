@@ -1,10 +1,7 @@
 package wechat
 
 import (
-	"bytes"
 	"crypto"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -15,11 +12,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	gcmTagSize   = 16
-	gcmNonceSize = 12
-)
-
 // RSAPadding RSA PEM 填充模式
 type RSAPadding int
 
@@ -27,140 +19,6 @@ const (
 	RSA_PKCS1 RSAPadding = 1 // PKCS#1 (格式：`RSA PRIVATE KEY` 和 `RSA PUBLIC KEY`)
 	RSA_PKCS8 RSAPadding = 8 // PKCS#8 (格式：`PRIVATE KEY` 和 `PUBLIC KEY`)
 )
-
-// ------------------------------------ AES-CBC ------------------------------------
-
-// AesCbcEncrypt AES-CBC pkcs#7 加密
-func AesCbcEncrypt(key, iv, data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(iv) != block.BlockSize() {
-		return nil, errors.New("IV length must equal block size")
-	}
-
-	data = PKCS5Padding(data, 32)
-
-	bm := cipher.NewCBCEncrypter(block, iv)
-	if len(data)%bm.BlockSize() != 0 {
-		return nil, errors.New("input not full blocks")
-	}
-
-	out := make([]byte, len(data))
-	bm.CryptBlocks(out, data)
-
-	return out, nil
-}
-
-// AesCbcDecrypt AES-CBC pkcs#7 解密
-func AesCbcDecrypt(key, iv, data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(iv) != block.BlockSize() {
-		return nil, errors.New("IV length must equal block size")
-	}
-
-	bm := cipher.NewCBCDecrypter(block, iv)
-	if len(data)%bm.BlockSize() != 0 {
-		return nil, errors.New("input not full blocks")
-	}
-
-	out := make([]byte, len(data))
-	bm.CryptBlocks(out, data)
-
-	return PKCS5Unpadding(out, 32), nil
-}
-
-// ------------------------------------ AES-ECB ------------------------------------
-
-// AesEcbEncrypt AES-ECB pkcs#7 加密
-func AesEcbEncrypt(key, data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	data = PKCS5Padding(data, 32)
-
-	bm := NewECBEncrypter(block)
-	if len(data)%bm.BlockSize() != 0 {
-		return nil, errors.New("input not full blocks")
-	}
-
-	out := make([]byte, len(data))
-	bm.CryptBlocks(out, data)
-
-	return out, nil
-}
-
-// AesEcbDecrypt AES-ECB pkcs#7 解密
-func AesEcbDecrypt(key, data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	bm := NewECBDecrypter(block)
-	if len(data)%bm.BlockSize() != 0 {
-		return nil, errors.New("input not full blocks")
-	}
-
-	out := make([]byte, len(data))
-	bm.CryptBlocks(out, data)
-
-	return PKCS5Unpadding(out, 32), nil
-}
-
-// ------------------------------------ AES-GCM ------------------------------------
-
-// AesGcmEncrypt AES-GCM 加密
-func AesGcmEncrypt(key, nonce, data, aad []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(nonce) != aead.NonceSize() {
-		return nil, errors.New("incorrect nonce length given to GCM")
-	}
-
-	if uint64(len(data)) > ((1<<32)-2)*uint64(block.BlockSize()) {
-		return nil, errors.New("message too large for GCM")
-	}
-
-	return aead.Seal(nil, nonce, data, aad), nil
-}
-
-// AesGcmDecrypt AES-GCM 解密
-func AesGcmDecrypt(key, nonce, data, aad []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(nonce) != aesgcm.NonceSize() {
-		return nil, errors.New("incorrect nonce length given to GCM")
-	}
-
-	return aesgcm.Open(nil, nonce, data, aad)
-}
-
-// ------------------------------------ RSA ------------------------------------
 
 // PrivateKey RSA私钥
 type PrivateKey struct {
@@ -349,94 +207,4 @@ func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
 	}
 
 	return NewPublicKeyFromDerBlock(b)
-}
-
-// --------------------------------- AES Padding ---------------------------------
-
-func PKCS5Padding(data []byte, blockSize int) []byte {
-	padding := blockSize - len(data)%blockSize
-	if padding == 0 {
-		padding = blockSize
-	}
-
-	b := bytes.Repeat([]byte{byte(padding)}, padding)
-
-	return append(data, b...)
-}
-
-func PKCS5Unpadding(data []byte, blockSize int) []byte {
-	length := len(data)
-	padding := int(data[length-1])
-
-	if padding < 1 || padding > blockSize {
-		padding = 0
-	}
-
-	return data[:(length - padding)]
-}
-
-// --------------------------------- ECB BlockMode ---------------------------------
-
-type ecb struct {
-	b         cipher.Block
-	blockSize int
-}
-
-func newECB(b cipher.Block) *ecb {
-	return &ecb{
-		b:         b,
-		blockSize: b.BlockSize(),
-	}
-}
-
-type ecbEncrypter ecb
-
-// NewECBEncrypter returns a BlockMode which encrypts in electronic code book mode, using the given Block.
-func NewECBEncrypter(b cipher.Block) cipher.BlockMode {
-	return (*ecbEncrypter)(newECB(b))
-}
-
-func (x *ecbEncrypter) BlockSize() int { return x.blockSize }
-
-func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
-		panic("crypto/cipher: input not full blocks")
-	}
-
-	if len(dst) < len(src) {
-		panic("crypto/cipher: output smaller than input")
-	}
-
-	for len(src) > 0 {
-		x.b.Encrypt(dst, src[:x.blockSize])
-
-		src = src[x.blockSize:]
-		dst = dst[x.blockSize:]
-	}
-}
-
-type ecbDecrypter ecb
-
-// NewECBDecrypter returns a BlockMode which decrypts in electronic code book mode, using the given Block.
-func NewECBDecrypter(b cipher.Block) cipher.BlockMode {
-	return (*ecbDecrypter)(newECB(b))
-}
-
-func (x *ecbDecrypter) BlockSize() int { return x.blockSize }
-
-func (x *ecbDecrypter) CryptBlocks(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
-		panic("crypto/cipher: input not full blocks")
-	}
-
-	if len(dst) < len(src) {
-		panic("crypto/cipher: output smaller than input")
-	}
-
-	for len(src) > 0 {
-		x.b.Decrypt(dst, src[:x.blockSize])
-
-		src = src[x.blockSize:]
-		dst = dst[x.blockSize:]
-	}
 }

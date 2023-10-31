@@ -27,7 +27,7 @@ func SignWithSHA1(token string, items ...string) string {
 
 // EventEncrypt 时间消息加密
 // [参考](https://developer.work.weixin.qq.com/document/path/90968)
-func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]byte, error) {
+func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) (*CipherText, error) {
 	key, err := base64.StdEncoding.DecodeString(encodingAESKey + "=")
 	if err != nil {
 		return nil, err
@@ -43,12 +43,7 @@ func EventEncrypt(receiveID, encodingAESKey, nonce string, plainText []byte) ([]
 	copy(encryptData[20:], plainText)
 	copy(encryptData[appidOffset:], receiveID)
 
-	cipherText, err := AesCbcEncrypt(key, key[:aes.BlockSize], encryptData)
-	if err != nil {
-		return nil, err
-	}
-
-	return cipherText, nil
+	return AESEncryptCBC(key, key[:aes.BlockSize], encryptData)
 }
 
 // EventDecrypt 事件消息解密
@@ -64,14 +59,13 @@ func EventDecrypt(receiveID, encodingAESKey, cipherText string) ([]byte, error) 
 		return nil, err
 	}
 
-	plainText, err := AesCbcDecrypt(key, key[:aes.BlockSize], decryptData)
+	plainText, err := AESDecryptCBC(key, key[:aes.BlockSize], decryptData)
 	if err != nil {
 		return nil, err
 	}
 
-	appidOffset := len(plainText) - len([]byte(receiveID))
-
 	// 校验 receiveid
+	appidOffset := len(plainText) - len([]byte(receiveID))
 	if v := string(plainText[appidOffset:]); v != receiveID {
 		return nil, fmt.Errorf("receive_id mismatch, want: %s, got: %s", receiveID, v)
 	}
@@ -88,12 +82,12 @@ func EventReply(receiveID, token, encodingAESKey string, msg V) (V, error) {
 	nonce := Nonce(16)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
-	b, err := EventEncrypt(receiveID, encodingAESKey, nonce, []byte(str))
+	ct, err := EventEncrypt(receiveID, encodingAESKey, nonce, []byte(str))
 	if err != nil {
 		return nil, err
 	}
 
-	encryptMsg := base64.StdEncoding.EncodeToString(b)
+	encryptMsg := ct.String()
 
 	return V{
 		"Encrypt":      encryptMsg,

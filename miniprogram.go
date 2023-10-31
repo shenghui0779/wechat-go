@@ -169,7 +169,7 @@ func (mp *MiniProgram) doSafe(ctx context.Context, method, path string, query ur
 	}
 
 	// 解密
-	data, err := mp.decrypt(b)
+	data, err := mp.decrypt(path, resp.Header, b)
 	if err != nil {
 		return nil, err
 	}
@@ -210,18 +210,18 @@ func (mp *MiniProgram) encrypt(log *ReqLog, path string, query url.Values, param
 		return nil, err
 	}
 
-	iv := NonceByte(gcmNonceSize)
+	iv := NonceByte(12)
 	aad := fmt.Sprintf("%s|%s|%d|%s", mp.url(path, nil), mp.appid, timestamp, mp.sfMode.aesSN)
 
-	b, err := AesGcmEncrypt(key, iv, data, []byte(aad))
+	ct, err := AESEncryptGCM(key, iv, data, []byte(aad))
 	if err != nil {
 		return nil, err
 	}
 
 	body := X{
 		"iv":      base64.StdEncoding.EncodeToString(iv),
-		"data":    base64.StdEncoding.EncodeToString(b),
-		"authtag": base64.StdEncoding.EncodeToString(b[len(b)-gcmTagSize:]),
+		"data":    base64.StdEncoding.EncodeToString(ct.Data()),
+		"authtag": base64.StdEncoding.EncodeToString(ct.Tag()),
 	}
 
 	return body, nil
@@ -291,7 +291,7 @@ func (mp *MiniProgram) verify(path string, header http.Header, body []byte) erro
 	return mp.sfMode.pubKey.Verify(crypto.SHA256, []byte(builder.String()), b)
 }
 
-func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
+func (mp *MiniProgram) decrypt(path string, header http.Header, body []byte) ([]byte, error) {
 	if len(mp.sfMode.aeskey) == 0 {
 		return nil, errors.New("aes-gcm key not found (forgotten configure?)")
 	}
@@ -313,12 +313,14 @@ func (mp *MiniProgram) decrypt(body []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	authtag, err := base64.StdEncoding.DecodeString(ret.Get("authtag").String())
+	tag, err := base64.StdEncoding.DecodeString(ret.Get("authtag").String())
 	if err != nil {
 		return nil, err
 	}
 
-	return AesGcmDecrypt(key, iv, data, authtag)
+	aad := fmt.Sprintf("%s|%s|%s|%s", mp.url(path, nil), mp.appid, header.Get(HeaderMPTimestamp), mp.sfMode.aesSN)
+
+	return AESDecryptGCM(key, iv, append(data, tag...), []byte(aad))
 }
 
 // Code2Session 通过临时登录凭证code完成登录流程
@@ -464,7 +466,9 @@ func (mp *MiniProgram) PostBuffer(ctx context.Context, accessToken, path string,
 	return b, nil
 }
 
-// SafePostJSON POST请求JSON数据 (安全鉴权模式，支持的api可参考https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc)
+// SafePostJSON POST请求JSON数据
+// 安全鉴权模式 https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/getting_started/api_signature.html
+// 支持的api可参考 https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc
 func (mp *MiniProgram) SafePostJSON(ctx context.Context, accessToken, path string, params X) (gjson.Result, error) {
 	query := url.Values{}
 	query.Set(AccessToken, accessToken)
@@ -482,7 +486,9 @@ func (mp *MiniProgram) SafePostJSON(ctx context.Context, accessToken, path strin
 	return ret, nil
 }
 
-// SafePostBuffer POST请求获取buffer (如：获取二维码；安全鉴权模式，支持的api可参考https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc)
+// SafePostBuffer POST请求获取buffer (如：获取二维码)
+// 安全鉴权模式 https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/getting_started/api_signature.html
+// 支持的api可参考 https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc
 func (mp *MiniProgram) SafePostBuffer(ctx context.Context, accessToken, path string, params X) ([]byte, error) {
 	query := url.Values{}
 	query.Set(AccessToken, accessToken)
@@ -567,7 +573,12 @@ func (mp *MiniProgram) DecodeEncryptData(sessionKey, iv, encryptData string) ([]
 		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
-	return AesCbcDecrypt(keyBlock, ivBlock, data)
+	ct, err := AESEncryptCBC(keyBlock, ivBlock, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return ct.Bytes(), nil
 }
 
 // DecodeEventMsg 解析事件消息，使用：msg_signature、timestamp、nonce、msg_encrypt
