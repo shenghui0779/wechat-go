@@ -213,7 +213,7 @@ func (p *Pay) PostTLSBuffer(ctx context.Context, path string, params V) ([]byte,
 }
 
 func (p *Pay) Sign(v V) string {
-	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
+	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyMode(EmptyIgnore)) + "&key=" + p.apikey
 
 	signType := v.Get("sign_type")
 	if len(signType) == 0 {
@@ -228,7 +228,7 @@ func (p *Pay) Sign(v V) string {
 }
 
 func (p *Pay) Verify(v V) error {
-	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyEncMode(EmptyEncIgnore)) + "&key=" + p.apikey
+	signStr := v.Encode("=", "&", WithIgnoreKeys("sign"), WithEmptyMode(EmptyIgnore)) + "&key=" + p.apikey
 
 	signType := v.Get("sign_type")
 	if len(signType) == 0 {

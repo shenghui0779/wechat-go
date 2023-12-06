@@ -5,8 +5,8 @@ go 1.20
 require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
-	golang.org/x/crypto v0.14.0
-	golang.org/x/sync v0.4.0
+	golang.org/x/crypto v0.16.0
+	golang.org/x/sync v0.5.0
 )
 
 require (

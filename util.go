@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"encoding/xml"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,16 +23,6 @@ var fail = func(err error) (gjson.Result, error) { return gjson.Result{}, err }
 
 // X 类型别名
 type X map[string]any
-
-// CDATA XML `CDATA` 标记
-type CDATA string
-
-// MarshalXML XML 带 `CDATA` 标记序列化
-func (c CDATA) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	return e.EncodeElement(struct {
-		string `xml:",cdata"`
-	}{string(c)}, start)
-}
 
 // APIResult API结果 (支付v3)
 type APIResult struct {
